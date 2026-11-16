@@ -49,7 +49,7 @@ O objetivo da disciplina é a **concorrência**: cada cozinheiro é uma thread e
 
 ### Jogador
 
-- **RF15** — O jogador coordena os cozinheiros **(proposta para os controles)**: teclas `1`–`4` selecionam um cozinheiro e as setas/clique escolhem qual pedido ele vai preparar. Um cozinheiro livre e sem ordem pega o pedido mais antigo da fila sozinho.
+- **RF15** — O jogador coordena os cozinheiros **(proposta para os controles)**: teclas `1`–`4` selecionam um cozinheiro e as setas/clique escolhem qual pedido ele vai preparar. Um pedido escolhido para um cozinheiro fica reservado para ele. Um cozinheiro livre e sem ordem pega sozinho o pedido mais antigo que não está reservado.
 - **RF16** — O jogador pode pausar a partida (`P`) e sair (`Esc`).
 
 ### Interface

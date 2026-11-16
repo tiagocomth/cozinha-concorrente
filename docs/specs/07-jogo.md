@@ -1,7 +1,7 @@
 # 07 — Jogo (integração)
 
 **Status:** proposta
-**Cobre:** RC01, RC06, RC07, RF09 (expiração na fila), integração geral
+**Cobre:** RC01, RC06, RC07, RF09 (expiração na fila), RF15 (ordem do jogador), integração geral
 **Depende de:** 00–06
 **Arquivo:** `cozinha/jogo.py`
 
@@ -15,7 +15,7 @@ Definida na spec 00:
 
 ```python
 class Jogo:
-    def __init__(self, config: Config, fonte_tempo=time.monotonic) -> None: ...
+    def __init__(self, config: Config, fonte_tempo: Callable[[], float] = time.monotonic) -> None: ...
     def iniciar(self) -> None: ...
     def atualizar(self) -> None: ...
     def retrato(self) -> Retrato: ...
@@ -23,14 +23,14 @@ class Jogo:
     def atribuir(self, pedido_id: int) -> None: ...
     def pausar(self) -> None: ...
     def retomar(self) -> None: ...
-    def encerrar(self) -> None: ...
+    def encerrar(self, timeout: float = 2.0) -> list[str]: ...
 ```
 
 ## Comportamento
 
 ### Montagem (`__init__`)
 
-Cria, nesta ordem: `parar = Event()`, `Relogio`, `Pontuacao`, `Partida`, `Cozinha`, `FilaDePedidos`, o `GeradorDePedidos` e `config.n_cozinheiros` `Cozinheiro` (ids 1..n). **Não inicia threads** no construtor: assim os testes montam e inspecionam sem nada rodando.
+Cria, nesta ordem: `parar = Event()`, `Relogio(fonte_tempo)`, `Pontuacao`, `Partida`, `Cozinha`, `FilaDePedidos`, o `GeradorDePedidos` e `config.n_cozinheiros` `Cozinheiro` (ids 1..n). **Não inicia threads** no construtor: assim os testes montam e inspecionam sem nada rodando.
 
 ### `iniciar`
 
@@ -39,10 +39,18 @@ Cria, nesta ordem: `parar = Event()`, `Relogio`, `Pontuacao`, `Partida`, `Cozinh
 ### `atualizar` (thread da interface, 1x por quadro)
 
 1. Se a partida não está RODANDO, não faz nada.
-2. `fila.remover_expirados(agora)` → `pontuacao.registrar_perda` para cada um (RF09).
-3. `partida.verificar_fim()`. Se terminou → `encerrar()` (as threads param; o último retrato fica disponível para a tela de resultado).
+2. Se alguma thread tem `erro` (spec 04/05) → sinaliza a parada e levanta `RuntimeError` com a exceção original. Bug de thread derruba o jogo de forma visível, em vez de deixar um cozinheiro "congelado".
+3. Se `config.expiracao`: `fila.remover_expirados(agora)` → `pontuacao.registrar_perda` para cada um (RF09).
+4. `partida.verificar_fim()`. Se terminou → `_sinalizar_parada()`.
 
-Tudo aqui é lock curto. **Nada de `join` com timeout longo:** o `encerrar` chamado daqui usa `join(timeout=0)` e deixa as threads terminarem sozinhas (são `daemon`); o `encerrar` do fechamento da janela é que espera.
+Tudo aqui é lock curto, sem `join`.
+
+### Parada em dois passos
+
+- `_sinalizar_parada()` (interno, não bloqueia): `parar.set()` e `relogio.congelar()` (que também libera quem estava esperando a pausa). As threads saem sozinhas em poucos ticks.
+- `encerrar(timeout)` (público, bloqueia): chama `_sinalizar_parada()` e **sempre** faz `join` em todas as threads, dividindo o `timeout` entre elas. Devolve os nomes das que não terminaram (e loga um aviso). Pode ser chamado mais de uma vez: cada chamada espera de novo.
+
+A tela chama `encerrar()` ao sair da partida ou fechar a janela (spec 08). Os testes tratam lista não vazia como falha.
 
 ### `retrato` (RC06)
 
@@ -50,27 +58,23 @@ Monta o `Retrato` pedindo uma cópia a cada parte, **uma de cada vez**, cada uma
 
 ```python
 pontos, entregues, perdidos = pontuacao.valores()
-pedidos = fila.views(agora) + tuple(v for c in self._cozinheiros if (v := c.pedido_view(agora)))  # ordenar por id
+na_fila = fila.views(agora)
+em_preparo = [v for c in self._cozinheiros if (v := c.pedido_view(agora))]
+pedidos = {v.id: v for v in na_fila} | {v.id: v for v in em_preparo}   # sem repetidos; o do cozinheiro vence
 cozinheiros = tuple(c.view() for c in self._cozinheiros)
 estacoes, grupos = cozinha.views()
+# + estado, tempo_restante, meta_batida da Partida; tamanho_max_fila da fila; selecionado
 ```
 
-Nunca segura dois locks ao mesmo tempo. Pequenas inconsistências entre partes são aceitas (spec 00).
+`pedidos` vai ordenado por id. Nunca segura dois locks ao mesmo tempo. Funciona antes de iniciar (tempo cheio, nada na fila) e depois do fim (valores congelados).
 
 ### Comandos do jogador
 
-- `selecionar(id)`: guarda o cozinheiro selecionado (atributo simples sob lock). Id inválido é ignorado.
-- `atribuir(pedido_id)`: chama `cozinheiro.ordenar(pedido_id)` do selecionado. Sem selecionado, ignora.
+- `selecionar(id)`: guarda o cozinheiro selecionado (sob lock). Id inválido é ignorado.
+- `atribuir(pedido_id)`: `fila.reservar(pedido_id, selecionado)` (spec 03). Sem selecionado, ou pedido que já saiu da fila, não faz nada.
 - `pausar` / `retomar`: `partida` + `relogio`. As threads param sozinhas pelo `esperar_rodando`.
 
-### `encerrar` (RC07)
-
-1. `parar.set()`.
-2. Retoma o relógio, se pausado, para ninguém ficar preso no `esperar_rodando`.
-3. `join(timeout=...)` em todas as threads (configurável; 2 s no fechamento da janela).
-4. Thread que não terminou → log de aviso com o nome. Os testes tratam isso como falha.
-
-Idempotente: chamar duas vezes não quebra.
+Todos chamados da thread da interface, com locks curtos. Não há fila de mensagens: a reserva já é a mensagem.
 
 ## Fora do escopo
 
@@ -80,9 +84,12 @@ Idempotente: chamar duas vezes não quebra.
 
 - [ ] Construir não inicia nenhuma thread (`threading.active_count()` não muda).
 - [ ] `iniciar` sobe `n_cozinheiros + 1` threads com nomes `cozinheiro-N` e `gerador`.
-- [ ] **Partida completa acelerada:** `Config` com partida de 3 s e tempos mínimos roda até VITORIA ou DERROTA sozinha (chamando `atualizar` em loop no teste) e termina com todas as threads paradas.
+- [ ] **Partida completa acelerada:** config com partida de 3 s e receitas de teste roda até VITORIA ou DERROTA sozinha (chamando `atualizar` em loop no teste) e `encerrar(timeout=2)` devolve `[]`.
+- [ ] Depois do fim, `retrato()` mostra placar e tempo iguais em chamadas separadas por 0,5 s.
 - [ ] `retrato()` funciona antes de iniciar, durante e depois de terminar.
-- [ ] `retrato()` chamado em loop por 1 s enquanto o jogo roda nunca levanta exceção e nunca demora mais que alguns milissegundos.
+- [ ] `retrato()` chamado em loop por 1 s com o jogo rodando nunca levanta exceção, nunca tem id repetido em `pedidos`, e o p99 do tempo de cada chamada fica abaixo de 5 ms.
 - [ ] Pedido vencido na fila some do retrato e aumenta `perdidos`.
-- [ ] `encerrar()` com o jogo pausado termina todas as threads em menos de 1 s.
+- [ ] `selecionar(2)` + `atribuir(7)`: o pedido 7 aparece com `reservado_para=2` e é o C2 que o prepara.
 - [ ] `atribuir` sem cozinheiro selecionado não faz nada.
+- [ ] `encerrar()` com o jogo pausado devolve `[]` em menos de 1 s; chamar de novo também devolve `[]`.
+- [ ] Thread com `erro` faz o próximo `atualizar` levantar `RuntimeError`.
