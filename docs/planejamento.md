@@ -13,6 +13,8 @@
 | **M4 — Partida completa** | Início, meta, aceleração, vitória/derrota, tela de resultado, pausa. | RF01–RF06, RF16 |
 | **M5 — Entrega** | Balanceamento, modo debug, README, roteiro da apresentação, ensaio. | RF19, RNF02, RNF06 |
 
+As specs de cada marco estão em [docs/specs](specs/README.md).
+
 ## Cronograma sugerido (5 semanas)
 
 | Semana | Foco | Entregável |

@@ -12,6 +12,7 @@ Cada cozinheiro é uma **thread** e cada equipamento é um **recurso compartilha
 | --- | --- |
 | [Requisitos](docs/requisitos.md) | O que o jogo faz: requisitos funcionais, de concorrência e não funcionais |
 | [Concorrência](docs/concorrencia.md) | Threads, recursos compartilhados e como resolvemos cada problema |
+| [Specs](docs/specs/README.md) | Uma spec por parte do jogo: interface, comportamento e critérios de aceite |
 | [Planejamento](docs/planejamento.md) | Marcos, cronograma, divisão de trabalho, fluxo no Git e apresentação |
 | [Respostas do formulário](docs/respostas-do-formulario.md) | As respostas do grupo que deram origem a tudo |
 
@@ -31,6 +32,7 @@ pytest                           # testes da lógica de concorrência
 ## Como contribuir
 
 - `main` recebe só o que está pronto para apresentar; `develop` é a integração.
+- Antes de codar uma parte, leia a spec dela em `docs/specs/`.
 - Cada tarefa numa branch `feature/<descricao>` saindo de `develop`, com PR de volta para `develop`.
 - Commits em Conventional Commits: `feat(threads): cozinheiro pega pedido da fila`.
 - PR só entra com o `pytest` passando.
