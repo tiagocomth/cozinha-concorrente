@@ -4,6 +4,12 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import fields
+
+from cozinha.config import Config
+
+# Mesmo valor do Config().tick, sem número mágico duplicado.
+TICK_PADRAO: float = next(f.default for f in fields(Config) if f.name == "tick")
 
 
 class Relogio:
@@ -65,7 +71,10 @@ class Relogio:
         with self._lock:
             return self._pausado_em is not None
 
-    def esperar_rodando(self, parar: threading.Event, fatia: float) -> None:
-        """Bloqueia enquanto pausado, acordando a cada `fatia` para olhar `parar`."""
+    def esperar_rodando(self, parar: threading.Event, fatia: float = TICK_PADRAO) -> None:
+        """Bloqueia enquanto pausado, acordando a cada `fatia` para olhar `parar`.
+
+        `fatia` padrão é o `Config().tick`; quem tem a config passa `config.tick`.
+        """
         while not parar.is_set() and not self.rodando.wait(fatia):
             pass

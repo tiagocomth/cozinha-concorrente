@@ -120,3 +120,20 @@ def test_esperar_rodando_nao_prende_depois_de_congelar():
     r.congelar()
     t.join(timeout=1)
     assert not t.is_alive()
+
+
+def test_esperar_rodando_sem_fatia_usa_tick_padrao():
+    """Specs 04 e 05 chamam esperar_rodando(parar) sem fatia."""
+    r = Relogio()
+    r.iniciar()
+    r.pausar()
+    parar = threading.Event()
+    t = threading.Thread(target=r.esperar_rodando, args=(parar,), daemon=True)
+    t.start()
+    time.sleep(0.1)
+    assert t.is_alive()
+    inicio = time.monotonic()
+    parar.set()
+    t.join(timeout=1)
+    assert not t.is_alive()
+    assert time.monotonic() - inicio < 0.1   # menos de 2 × Config().tick

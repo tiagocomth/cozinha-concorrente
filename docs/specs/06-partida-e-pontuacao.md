@@ -21,7 +21,7 @@ class Relogio:
     def congelar(self) -> None: ...        # fim da partida: agora() para de andar para sempre
     @property
     def pausado(self) -> bool: ...
-    def esperar_rodando(self, parar: Event, fatia: float) -> None: ...
+    def esperar_rodando(self, parar: Event, fatia: float = TICK_PADRAO) -> None: ...  # padrão = Config().tick
 ```
 
 - Guarda o início e o total de tempo pausado, sob um `Lock`. `agora()` = `fonte() - inicio - total_pausado`, parado durante a pausa e depois de `congelar`.
