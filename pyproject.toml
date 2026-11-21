@@ -1,0 +1,10 @@
+[project]
+name = "cozinha-concorrente"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+markers = ["demo: demonstrações que travam de propósito (fora da suíte padrão)"]
+addopts = "-m 'not demo'"
+timeout = 30
+testpaths = ["tests"]
