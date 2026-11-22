@@ -8,7 +8,7 @@ from typing import NamedTuple
 import pygame
 
 from cozinha.modelo.retrato import GrupoView, PedidoView
-from cozinha.modelo.tipos import TipoEstacao
+from cozinha.modelo.tipos import EstadoPedido, TipoEstacao
 
 Cor = tuple[int, int, int]
 Ponto = tuple[float, float]
@@ -40,28 +40,32 @@ HUD_ALTURA = 56
 BARRA_PONTOS = pygame.Rect(420, 18, 320, 20)
 BOLINHA_RAIO = 8
 
-# Faixa de pedidos
+# Faixa de pedidos: uma linha para a fila, outra (mais baixa) para os em preparo
 PEDIDOS_TITULO_Y = HUD_ALTURA + 8
 CARTAO_Y = HUD_ALTURA + 34
 CARTAO_TAMANHO = (190, 74)
+CARTAO_PREPARO_Y = CARTAO_Y + 82
+CARTAO_PREPARO_ALTURA = 44
 CARTAO_ESPACO = 12
 BARRA_PACIENCIA_ALTURA = 8
 
 # Estações
-ESTACOES_TITULO_Y = 200
-ESTACOES_Y = 226
+ESTACOES_TITULO_Y = 240
+ESTACOES_Y = 266
 ESTACAO_TAMANHO = (120, 80)
 ESTACAO_ESPACO = 16
 GRUPO_ESPACO = 40
 VAGA_TAMANHO = (40, 40)
 VAGA_ESPACO = 8
-ESPERA_DISTANCIA = 34          # entre um cozinheiro e o próximo na fila de espera
-ESPERA_INICIO = 32             # da base da estação ao primeiro da fila
+ESPERA_DISTANCIA = 32          # entre um cozinheiro e o próximo na fila de espera
+ESPERA_INICIO = 30             # da base da estação ao primeiro da fila
 
 # Cozinheiros
 COZINHEIRO_RAIO = 15
 CONTORNO_SELECIONADO = 4
-DESCANSO_Y = 540
+CONTORNO_COZINHEIRO = 3
+ANEL_ESPERA = COZINHEIRO_RAIO + 8   # anel de alerta em volta de quem espera
+DESCANSO_Y = 548
 DESCANSO_X0 = 80
 DESCANSO_ESPACO = 60
 VELOCIDADE = 420.0             # pixels por segundo
@@ -98,10 +102,17 @@ def cor_cozinheiro(cozinheiro_id: int) -> Cor:
 
 
 def cartoes_pedidos(pedidos: Sequence[PedidoView], tamanho_max: int) -> dict[int, pygame.Rect]:
-    """Retângulo de cada cartão, na ordem do retrato. Cabem `tamanho_max` lado a lado."""
+    """Retângulo de cada cartão: os da fila numa linha (até `tamanho_max`), os em preparo
+    numa linha mais baixa logo abaixo. O retrato traz até tamanho_max + n_cozinheiros pedidos."""
     largura, altura = CARTAO_TAMANHO
-    return {p.id: pygame.Rect(MARGEM + i * (largura + CARTAO_ESPACO), CARTAO_Y, largura, altura)
-            for i, p in enumerate(pedidos[:tamanho_max])}
+    na_fila = [p for p in pedidos if p.estado is EstadoPedido.AGUARDANDO][:tamanho_max]
+    em_preparo = [p for p in pedidos if p.estado is not EstadoPedido.AGUARDANDO]
+    cartoes = {p.id: pygame.Rect(MARGEM + i * (largura + CARTAO_ESPACO), CARTAO_Y, largura, altura)
+               for i, p in enumerate(na_fila)}
+    cartoes.update({p.id: pygame.Rect(MARGEM + i * (largura + CARTAO_ESPACO), CARTAO_PREPARO_Y,
+                                      largura, CARTAO_PREPARO_ALTURA)
+                    for i, p in enumerate(em_preparo)})
+    return cartoes
 
 
 @dataclass

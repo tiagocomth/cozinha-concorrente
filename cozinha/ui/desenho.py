@@ -61,12 +61,12 @@ def desenhar_pedido(sup: pygame.Surface, p: PedidoView, rect: pygame.Rect, f: Fo
         pygame.draw.rect(sup, layout.cor_cozinheiro(p.cozinheiro_id), rect, 3, border_radius=6)
     if cursor:
         pygame.draw.rect(sup, layout.DESTAQUE, rect.inflate(6, 6), 2, border_radius=8)
-    _texto(sup, f.media, f"#{p.id} {p.receita}", (rect.x + 10, rect.y + 10))
+    _texto(sup, f.media, f"#{p.id} {p.receita}", (rect.x + 10, rect.y + 8))
     if p.reservado_para is not None:
         centro = (rect.right - 18, rect.y + 18)
         pygame.draw.circle(sup, layout.cor_cozinheiro(p.reservado_para), centro, 12)
         _texto(sup, f.pequena, str(p.reservado_para), centro, centro=True)
-    barra = pygame.Rect(rect.x + 10, rect.bottom - 10 - layout.BARRA_PACIENCIA_ALTURA,
+    barra = pygame.Rect(rect.x + 10, rect.bottom - 8 - layout.BARRA_PACIENCIA_ALTURA,
                         rect.width - 20, layout.BARRA_PACIENCIA_ALTURA)
     _barra(sup, barra, p.paciencia, cor_paciencia(p.paciencia))
 
@@ -101,12 +101,14 @@ def desenhar_cozinheiro(sup: pygame.Surface, c: CozinheiroView, pos: Ponto, f: F
                         selecionado: bool = False) -> None:
     centro = (round(pos[0]), round(pos[1]))
     if c.estado is EstadoCozinheiro.ESPERANDO:
-        pygame.draw.circle(sup, layout.ALERTA, centro, layout.COZINHEIRO_RAIO + 4, 3)
+        pygame.draw.circle(sup, layout.ALERTA, centro, layout.ANEL_ESPERA, 3)
+    # Contorno escuro: em cima da estação que ocupa, que tem a mesma cor, ele não some.
+    pygame.draw.circle(sup, layout.FUNDO, centro, layout.COZINHEIRO_RAIO + layout.CONTORNO_COZINHEIRO)
     pygame.draw.circle(sup, layout.cor_cozinheiro(c.id), centro, layout.COZINHEIRO_RAIO)
     if selecionado:
         pygame.draw.circle(sup, layout.DESTAQUE, centro,
-                           layout.COZINHEIRO_RAIO + layout.CONTORNO_SELECIONADO,
-                           layout.CONTORNO_SELECIONADO)
+                           layout.COZINHEIRO_RAIO + layout.CONTORNO_COZINHEIRO
+                           + layout.CONTORNO_SELECIONADO, layout.CONTORNO_SELECIONADO)
     _texto(sup, f.media, str(c.id), centro, (20, 20, 20), centro=True)
 
 

@@ -42,9 +42,12 @@ def _pedidos(n: int) -> tuple[PedidoView, ...]:
 
 
 def test_cartoes_cabem():
-    cartoes = layout.cartoes_pedidos(_pedidos(6), 6)
+    """Fila cheia (6) e mais 4 em preparo: todos os 10 cartões aparecem."""
+    em_preparo = tuple(PedidoView(i, "Prato do dia", EstadoPedido.EM_PREPARO, 0.5, i - 6, None)
+                       for i in range(7, 11))
+    cartoes = layout.cartoes_pedidos(_pedidos(6) + em_preparo, 6)
     janela = pygame.Rect((0, 0), layout.JANELA)
-    assert len(cartoes) == 6
+    assert len(cartoes) == 10
     assert all(janela.contains(r) for r in cartoes.values())
     for a, b in itertools.combinations(cartoes.values(), 2):
         assert not a.colliderect(b)
@@ -80,3 +83,13 @@ def test_desempenho(tela):
         desenho.desenhar_retrato(tela, r, posicoes, fontes)
         pygame.display.flip()
     assert time.monotonic() - inicio < 10
+
+
+def test_cozinheiro_visivel_sobre_a_propria_estacao(tela):
+    """O círculo tem a cor do cozinheiro, igual à da estação que ele ocupa: precisa de contorno."""
+    c = Retrato.exemplo().cozinheiros[0]
+    cor = layout.cor_cozinheiro(c.id)
+    tela.fill(cor)
+    desenho.desenhar_cozinheiro(tela, c, (200, 200), layout.fontes())
+    borda = tela.get_at((200 + layout.COZINHEIRO_RAIO + 1, 200))[:3]
+    assert borda != cor
