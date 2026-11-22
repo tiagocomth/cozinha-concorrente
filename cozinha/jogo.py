@@ -104,6 +104,19 @@ class Jogo:
             selecionado=selecionado,
         )
 
+    def selecionar(self, cozinheiro_id: int) -> None:
+        """Id fora de 1..n_cozinheiros é ignorado."""
+        if 1 <= cozinheiro_id <= self._config.n_cozinheiros:
+            with self._lock:
+                self._selecionado = cozinheiro_id
+
+    def atribuir(self, pedido_id: int) -> None:
+        """Ordem do jogador ao selecionado. A reserva na fila já é a mensagem (spec 03)."""
+        with self._lock:
+            selecionado = self._selecionado
+        if selecionado is not None:
+            self._fila.reservar(pedido_id, selecionado)
+
     def pausar(self) -> None:
         self._partida.pausar()                 # a Partida já pausa o relógio
 

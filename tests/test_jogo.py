@@ -189,3 +189,50 @@ def test_retrato_sem_repetidos(novo_jogo, monkeypatch):
     r = j.retrato()
     assert [p.id for p in r.pedidos] == [42]
     assert r.pedidos[0].estado is EstadoPedido.EM_PREPARO
+
+
+# ---------- Task 5 ----------
+
+def test_selecionar_e_atribuir(novo_jogo):
+    j = novo_jogo(config_rapida(duracao_partida=10, receitas=receitas(dur=0.3, paciencia=5)))
+    j.iniciar()
+
+    def aguardando():
+        return [p for p in j.retrato().pedidos if p.estado is EstadoPedido.AGUARDANDO]
+
+    esperar(lambda: aguardando())
+    alvo = aguardando()[0].id
+    j.selecionar(2)
+    j.atribuir(alvo)
+    v = next(p for p in j.retrato().pedidos if p.id == alvo)
+    assert v.reservado_para == 2 or v.cozinheiro_id == 2
+    esperar(lambda: any(c.view().pedido_id == alvo for c in j._cozinheiros), prazo=3)
+    assert next(c for c in j._cozinheiros if c.view().pedido_id == alvo).id == 2
+
+
+def test_atribuir_sem_selecionado(novo_jogo):
+    j = novo_jogo(config_rapida(n_cozinheiros=1))
+    j._fila.colocar(lambda: Pedido(1, receitas()[0], 0.0), 0.1)
+    j.atribuir(1)
+    assert j.retrato().pedidos[0].reservado_para is None
+
+
+def test_selecionar_invalido(novo_jogo):
+    j = novo_jogo()
+    j.selecionar(2)
+    j.selecionar(0)
+    j.selecionar(3)
+    assert j.retrato().selecionado == 2
+
+
+def test_pausar_e_retomar(novo_jogo):
+    j = novo_jogo(config_rapida(duracao_partida=10))
+    j.iniciar()
+    j.pausar()
+    a = j.retrato()
+    time.sleep(0.2)
+    b = j.retrato()
+    assert a.estado is b.estado is EstadoPartida.PAUSADA
+    assert a.tempo_restante == b.tempo_restante
+    j.retomar()
+    assert j.retrato().estado is EstadoPartida.RODANDO
