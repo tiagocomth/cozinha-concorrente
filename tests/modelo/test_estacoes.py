@@ -225,3 +225,64 @@ def test_cozinha_liberar_invalida_nao_solta_nada():
     with pytest.raises(ValueError):
         coz.liberar([reservas[0], Reserva(BALCAO, 7)])
     assert _ocupadas(coz) == {(FOGAO, 0): 1, (BALCAO, 0): 1}
+
+
+# ---------- Deadlock ----------
+
+def test_demo_inverte_so_pares():
+    coz = _cozinha(ordem_fixa=False)
+    esperas: dict[int, list[TipoEstacao]] = {1: [], 2: []}
+    for dono in (1, 2):
+        reservas = coz.ocupar_todas(dono, (FOGAO, BALCAO), NUNCA,
+                                    lambda s, e, d=dono: e and esperas[d].append(e))
+        coz.liberar(reservas)
+    assert esperas[1] == [FOGAO, BALCAO]
+    assert esperas[2] == [BALCAO, FOGAO]
+
+
+def _a_caminho(segurando, esperando) -> None:
+    """Segurando uma estação e indo para a próxima: 0,2 ms para as threads se cruzarem.
+
+    Sem isso, com tempo zero, cada thread faz todas as voltas na própria fatia de CPU
+    e o cruzamento que causa o deadlock quase nunca acontece.
+    """
+    if segurando and esperando is not None:
+        time.sleep(0.0002)
+
+
+def _disputar(coz: Cozinha, parar: threading.Event, voltas: int, n: int = 6) -> list[threading.Thread]:
+    def cozinhar(dono: int) -> None:
+        for _ in range(voltas):
+            reservas = coz.ocupar_todas(dono, (FOGAO, BALCAO), parar.is_set, _a_caminho)
+            if reservas is None:
+                return
+            coz.liberar(reservas)
+
+    threads = [threading.Thread(target=cozinhar, args=(d,), daemon=True) for d in range(1, n + 1)]
+    for t in threads:
+        t.start()
+    return threads
+
+
+def test_sem_deadlock():
+    coz = _cozinha()
+    threads = _disputar(coz, threading.Event(), voltas=500)
+    for t in threads:
+        t.join(timeout=5)
+        assert not t.is_alive()
+    assert _ocupadas(coz) == {}
+
+
+@pytest.mark.demo
+def test_deadlock_demonstravel():
+    coz = Cozinha(Config.demo_deadlock())
+    parar = threading.Event()
+    threads = _disputar(coz, parar, voltas=500)
+    for t in threads:
+        t.join(timeout=5 / len(threads))
+    assert any(t.is_alive() for t in threads), "deveria ter travado sem a ordem fixa"
+    parar.set()
+    for t in threads:
+        t.join(timeout=1)
+        assert not t.is_alive()
+    assert _ocupadas(coz) == {}

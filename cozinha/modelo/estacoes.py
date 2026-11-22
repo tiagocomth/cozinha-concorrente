@@ -83,8 +83,12 @@ class Cozinha:
         """
         if self._ordem_fixa and list(tipos) != sorted(tipos):
             raise ValueError(f"tipos fora da ordem fixa: {tipos}")
+        ordem = tipos
+        if not self._ordem_fixa and dono % 2 == 0:
+            # Só na demonstração (spec 09): os pares pegam ao contrário e a cozinha trava.
+            ordem = tuple(reversed(tipos))
         segurando: tuple[Reserva, ...] = ()
-        for tipo in tipos:
+        for tipo in ordem:
             ao_mudar(segurando, tipo)                       # já segura X e espera este
             reserva = self._grupos[tipo].ocupar(dono, cancelar)
             if reserva is None:
