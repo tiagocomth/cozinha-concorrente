@@ -30,22 +30,34 @@ class SemaforoJusto:
     def acquire(self, dono: int, timeout: float | None = None,
                 cancelar: Callable[[], bool] | None = None,
                 fatia: float = 0.05) -> bool:
-        """Entra no fim da fila e espera a vez. False se `timeout` acabar ou `cancelar()`."""
+        """Entra no fim da fila. Consulta prazo e cancelamento se precisar esperar."""
         limite = None if timeout is None else time.monotonic() + timeout
+        senha = _Senha(dono)
         with self._cond:
-            senha = _Senha(dono)
             self._fila.append(senha)
-            while not (self._fila[0] is senha and self._valor > 0):
-                restante = None if limite is None else limite - time.monotonic()
-                if (restante is not None and restante <= 0) or (cancelar and cancelar()):
-                    self._fila.remove(senha)          # por identidade
-                    self._cond.notify_all()           # quem estava atrás pode passar agora
+        try:
+            while True:
+                with self._cond:
+                    if self._fila[0] is senha and self._valor > 0:
+                        self._fila.popleft()
+                        self._valor -= 1
+                        self._cond.notify_all()
+                        return True
+                if limite is not None and time.monotonic() >= limite:
                     return False
-                self._cond.wait(fatia if restante is None else min(fatia, restante))
-            self._fila.popleft()
-            self._valor -= 1
-            self._cond.notify_all()                   # a próxima pode passar se ainda houver vaga
-            return True
+                if cancelar is not None and cancelar():
+                    return False
+                with self._cond:
+                    # A vaga pode ter sido liberada enquanto o callback rodava.
+                    if self._fila[0] is senha and self._valor > 0:
+                        continue
+                    espera = fatia if limite is None else min(fatia, limite - time.monotonic())
+                    self._cond.wait(espera)
+        finally:
+            with self._cond:
+                if senha in self._fila:
+                    self._fila.remove(senha)
+                    self._cond.notify_all()
 
     def release(self) -> None:
         with self._cond:

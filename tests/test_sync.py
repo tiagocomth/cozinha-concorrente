@@ -127,44 +127,72 @@ def test_fifo_espera_longa():
 def test_sem_inanicao():
     """Ordem de chegada, não igualdade de usos: quem chega passa na frente de quem chega depois."""
     sem = SemaforoJusto(1)
+    assert sem.acquire(0)
     parar = threading.Event()
-    trava = threading.Lock()
     entradas: list[int] = []
+    alvo_entrou = threading.Event()
 
     def disputar(dono: int) -> None:
-        while not parar.is_set():
-            if sem.acquire(dono, cancelar=parar.is_set, fatia=0.01):
-                with trava:
-                    entradas.append(dono)
-                time.sleep(0.001)
-                sem.release()
+        while not parar.is_set() and sem.acquire(dono, cancelar=parar.is_set):
+            entradas.append(dono)
+            if dono == 99:
+                alvo_entrou.set()
+            sem.release()
 
-    rivais = [threading.Thread(target=disputar, args=(i,), daemon=True) for i in range(1, 5)]
-    for t in rivais:
-        t.start()
-    time.sleep(0.1)
-    x_entrou = threading.Event()
-
-    def chegar() -> None:
-        assert sem.acquire(99, fatia=0.01)
-        with trava:
-            entradas.append(99)
-        x_entrou.set()
+    threads = []
+    ordem = [1, 2, 99, 3, 4]
+    try:
+        for dono in ordem:
+            t = threading.Thread(target=disputar, args=(dono,), daemon=True)
+            t.start()
+            threads.append(t)
+            esperar_na_fila(sem, dono)
         sem.release()
+        assert alvo_entrou.wait(timeout=2)
+        assert entradas[:3] == ordem[:3]
+    finally:
+        parar.set()
+        _terminar(threads)
 
-    x = threading.Thread(target=chegar, daemon=True)
-    x.start()
-    esperar_na_fila(sem, 99)
-    fila = sem.esperando()
-    with trava:
-        ja_registradas = len(entradas)
-    assert x_entrou.wait(timeout=2)
-    parar.set()
-    _terminar(rivais + [x])
-    a_frente = fila.index(99) if 99 in fila else 0
-    entradas_antes_de_x = entradas.index(99) - ja_registradas
-    # Só quem estava à frente passa antes (+1: uma entrada pode ainda não ter sido registrada).
-    assert entradas_antes_de_x <= a_frente + 1
+
+def test_excecao_no_cancelamento_remove_senha():
+    sem = SemaforoJusto(1)
+    assert sem.acquire(0)
+
+    def falhar():
+        raise RuntimeError("falha no cancelamento")
+
+    with pytest.raises(RuntimeError, match="falha no cancelamento"):
+        sem.acquire(1, cancelar=falhar)
+    assert sem.esperando() == ()
+    sem.release()
+    assert sem.acquire(2, timeout=0)
+    sem.release()
+
+
+def test_cancelamento_nao_segura_condition():
+    sem = SemaforoJusto(1)
+    assert sem.acquire(0)
+    consultando = threading.Event()
+    liberou = threading.Event()
+
+    def cancelar():
+        consultando.set()
+        return not liberou.wait(timeout=1)
+
+    def liberar():
+        sem.release()
+        liberou.set()
+
+    resultado = []
+    t = threading.Thread(target=lambda: resultado.append(sem.acquire(1, cancelar=cancelar)), daemon=True)
+    t.start()
+    assert consultando.wait(timeout=1)
+    soltar = threading.Thread(target=liberar, daemon=True)
+    soltar.start()
+    _terminar([soltar, t])
+    assert resultado == [True]
+    sem.release()
 
 
 def test_timeout():
