@@ -165,7 +165,7 @@ class Config:
 - `quantidade` usa `default_factory` + `MappingProxyType`: dict como valor padrão de dataclass dá erro ao importar, e um dict comum seria mutável dentro de um objeto "frozen".
 - `quantidade[BALCAO]` é a **capacidade** do balcão. É um balcão só, com N vagas (o formulário fala em 6 estações: 2 fogões, 2 tábuas, 1 pia, 1 balcão).
 - `__post_init__` valida o básico (tempos > 0, quantidades ≥ 1, `n_cozinheiros` ≥ 1). `validar_para_jogo` valida as faixas do jogo de verdade: duração entre 180 e 300 s (RF01) e 3 a 4 cozinheiros. Os testes podem usar 1 cozinheiro e partidas de 3 s.
-- `demo_deadlock()`: `ordem_fixa=False`, `expiracao=False`, 1 fogão, balcão de capacidade 1, só a receita Sopa, 2 cozinheiros, `limite_perdidos` alto. Usada por `--demo-deadlock` (spec 09).
+- `demo_deadlock()`: `ordem_fixa=False`, `expiracao=False`, 1 fogão, balcão de capacidade 1, só a receita Sopa, 2 cozinheiros, `limite_perdidos` alto e pedidos a cada 1 s (com o intervalo normal de 8 s, os dois cozinheiros quase nunca chegam juntos ao empratar e a demo não trava). Usada por `--demo-deadlock` (spec 09).
 - Os testes criam configs com `dataclasses.replace(Config(), ...)`. Nada de número mágico fora daqui (exceto layout da tela, que fica em `ui/layout.py`).
 
 ## Retrato (`modelo/retrato.py`)
