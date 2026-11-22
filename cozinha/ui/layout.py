@@ -76,7 +76,9 @@ PAINEL_LINHA = 26
 PAINEL_COLUNA = 620
 
 # Debug e confirmação
-DEBUG_RETANGULO = pygame.Rect(760, 190, 500, 520)
+DEBUG_RETANGULO = pygame.Rect(940, 236, 330, 336)   # à direita do balcão
+DEBUG_FUNDO = (10, 10, 14, 220)
+DEBUG_LINHA = 20
 CONFIRMACAO_RETANGULO = pygame.Rect(390, 290, 500, 140)
 
 FONTE_TAMANHOS = (20, 26, 52)

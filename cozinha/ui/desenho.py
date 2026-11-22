@@ -158,3 +158,60 @@ def desenhar_retrato(sup: pygame.Surface, r: Retrato, posicoes: Mapping[int, Pon
     for c in r.cozinheiros:
         pos = posicoes.get(c.id, layout.posicao_descanso(c.id))
         desenhar_cozinheiro(sup, c, pos, f, c.id == r.selecionado)
+
+
+def desenhar_debug(sup: pygame.Surface, r: Retrato, f: Fontes, fps: float,
+                   threads_vivas: int) -> None:
+    """Modo debug (RF19): a concorrência por dentro, para a apresentação.
+
+    Por estação na coluna à direita do balcão (as estações continuam visíveis);
+    por cozinheiro no lugar do painel inferior.
+    """
+    caixa = layout.DEBUG_RETANGULO
+    fundo = pygame.Surface(caixa.size, pygame.SRCALPHA)
+    fundo.fill(layout.DEBUG_FUNDO)
+    sup.blit(fundo, caixa.topleft)
+    na_fila = sum(1 for p in r.pedidos if p.estado is EstadoPedido.AGUARDANDO)
+    linhas: list[tuple[str, Cor]] = [
+        (f"DEBUG  fila {na_fila}/{r.tamanho_max_fila} · {fps:.0f} FPS", layout.DESTAQUE),
+        (f"{threads_vivas} threads vivas", layout.DESTAQUE),
+        ("ordem fixa: TÁBUA > PIA > FOGÃO > BALCÃO", layout.TEXTO_FRACO),
+        ("", layout.TEXTO),
+    ]
+    por_id = {c.id: c for c in r.cozinheiros}
+    for g in r.grupos:
+        dentro = [f"C{e.ocupada_por}" for e in r.estacoes
+                  if e.tipo is g.tipo and e.ocupada_por is not None]
+        linhas.append((f"{NOMES[g.tipo]} [{len(dentro)}/{g.capacidade}]: "
+                       f"{', '.join(dentro) or '-'}", layout.TEXTO))
+        for cid in g.fila_espera:
+            ha = f" há {por_id[cid].esperando_ha:.1f}s" if cid in por_id else ""
+            linhas.append((f"   espera: C{cid}{ha}", layout.ALERTA))
+    y = caixa.y + 10
+    for texto, cor in linhas:
+        if texto:
+            _texto(sup, f.pequena, texto, (caixa.x + 12, y), cor)
+        y += layout.DEBUG_LINHA
+
+    pygame.draw.rect(sup, layout.PAINEL, (0, layout.PAINEL_Y, layout.JANELA[0],
+                                          layout.JANELA[1] - layout.PAINEL_Y))
+    for i, c in enumerate(r.cozinheiros):
+        segura = ", ".join(f"{NOMES[t]} {n + 1}" for t, n in c.segurando) or "-"
+        espera = NOMES[c.esperando] if c.esperando is not None else "-"
+        cor = layout.ALERTA if c.esperando is not None else layout.TEXTO
+        coluna, linha = divmod(i, 4)
+        pos = (layout.MARGEM + coluna * layout.PAINEL_COLUNA,
+               layout.PAINEL_Y + 12 + linha * layout.PAINEL_LINHA)
+        pygame.draw.circle(sup, layout.cor_cozinheiro(c.id), (pos[0] + 6, pos[1] + 8), 6)
+        _texto(sup, f.pequena, f"C{c.id} {c.estado.name}: segura {segura} · espera {espera}"
+                               f" · total {c.espera_total:.1f}s", (pos[0] + 18, pos[1]), cor)
+
+
+def desenhar_confirmacao(sup: pygame.Surface, f: Fontes) -> None:
+    desenhar_veu(sup)
+    caixa = layout.CONFIRMACAO_RETANGULO
+    pygame.draw.rect(sup, layout.PAINEL, caixa, border_radius=10)
+    pygame.draw.rect(sup, layout.DESTAQUE, caixa, 2, border_radius=10)
+    _texto(sup, f.grande, "Sair da partida?", (caixa.centerx, caixa.y + 45), centro=True)
+    _texto(sup, f.media, "Enter = sim · Esc = não", (caixa.centerx, caixa.y + 100),
+           layout.TEXTO_FRACO, centro=True)

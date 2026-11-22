@@ -6,6 +6,7 @@ Só a thread principal chama estes métodos (RC06).
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Protocol
 
 import pygame
@@ -14,7 +15,7 @@ from cozinha.config import Config
 from cozinha.jogo import Jogo
 from cozinha.modelo.retrato import Retrato
 from cozinha.modelo.tipos import EstadoPartida
-from cozinha.ui import desenho, layout
+from cozinha.ui import desenho, entrada, layout
 from cozinha.ui.animacao import Animacao
 
 log = logging.getLogger(__name__)
@@ -88,14 +89,48 @@ class TelaJogo:
         self._retrato: Retrato = self.jogo.retrato()
         self._animacao.atualizar(self._retrato, 0.0)
         self._fechada = False
+        self.debug = False
+        self.confirmando = False            # caixa "Sair da partida?" aberta
+        self._pausada_antes = False         # estava pausada (P) antes de abrir a caixa
+        self.cursor: int | None = None      # pedido_id escolhido pelas setas
 
     # ---------- eventos ----------
 
     def evento(self, e: pygame.event.Event) -> Tela | object | None:
         if e.type == pygame.WINDOWFOCUSLOST:
             self.jogo.pausar()              # retomar é com P: o foco voltar não retoma
-        elif e.type == pygame.KEYDOWN and e.key == pygame.K_p:
-            self._alternar_pausa()
+            return None
+        if self.confirmando:
+            return self._evento_confirmacao(e)
+        r = self.jogo.retrato()
+        cartoes = layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila)
+        acao, self.cursor = entrada.traduzir(e, r, self.cursor, cartoes)
+        match acao:
+            case entrada.Selecionar(cozinheiro_id=cid):
+                self.jogo.selecionar(cid)
+            case entrada.Atribuir(pedido_id=pid):
+                self.jogo.atribuir(pid)
+            case entrada.AlternarPausa():
+                self._alternar_pausa()
+            case entrada.AlternarDebug():
+                self.debug = not self.debug
+            case entrada.PedirSaida():
+                self._pausada_antes = r.estado is EstadoPartida.PAUSADA
+                self.jogo.pausar()
+                self.confirmando = True
+        return None
+
+    def _evento_confirmacao(self, e: pygame.event.Event) -> Tela | object | None:
+        """Com a caixa aberta, só Enter (sai) e Esc (volta) contam."""
+        if e.type != pygame.KEYDOWN:
+            return None
+        if e.key in ENTER:
+            self.fechar()
+            return TelaInicio(self.config)
+        if e.key == pygame.K_ESCAPE:
+            self.confirmando = False
+            if not self._pausada_antes:
+                self.jogo.retomar()
         return None
 
     def _alternar_pausa(self) -> None:
@@ -119,8 +154,12 @@ class TelaJogo:
 
     def desenhar(self, sup: pygame.Surface) -> None:
         r = self._retrato
-        desenho.desenhar_retrato(sup, r, self._animacao.posicoes, self._fontes)
-        if r.estado is EstadoPartida.PAUSADA:
+        desenho.desenhar_retrato(sup, r, self._animacao.posicoes, self._fontes, self.cursor)
+        if self.debug:
+            desenho.desenhar_debug(sup, r, self._fontes, self.fps, threading.active_count())
+        if self.confirmando:
+            desenho.desenhar_confirmacao(sup, self._fontes)
+        elif r.estado is EstadoPartida.PAUSADA:
             desenho.desenhar_pausa(sup, self._fontes)
 
     def fechar(self) -> None:
