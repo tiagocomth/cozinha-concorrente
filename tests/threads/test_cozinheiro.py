@@ -150,3 +150,73 @@ def test_parar_livre(montar):
     m.parar.set()
     c.join(timeout=1)
     assert not c.is_alive()
+
+
+# ---------- Task 4 ----------
+
+def test_pausa_congela_progresso(montar):
+    m = montar()
+    p = m.pedir(salada(dur=0.5))
+    c = m.cozinheiro()
+    esperar(lambda: c.view().estado is EstadoCozinheiro.TRABALHANDO and c.view().progresso > 0)
+    m.relogio.pausar()
+    time.sleep(0.02)
+    antes = c.view().progresso
+    time.sleep(0.2)
+    assert c.view().progresso == antes
+    m.relogio.retomar()
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+
+
+def test_expira_em_etapa_normal(montar):
+    m = montar()
+    p = m.pedir(salada(dur=0.5, paciencia=0.05))
+    m.cozinheiro()
+    esperar(lambda: p.estado is EstadoPedido.PERDIDO)
+    assert m.pontuacao.valores()[2] == 1
+    esperar(lambda: m.ocupadas() == {})
+
+
+def test_expira_esperando_estacao(montar):
+    m = montar(quantidade={TABUA: 1, PIA: 1, FOGAO: 1, BALCAO: 1})
+    m.cozinha.ocupar_todas(99, (TABUA,), NUNCA)
+    p = m.pedir(salada(paciencia=0.1))
+    m.cozinheiro()
+    esperar(lambda: p.estado is EstadoPedido.PERDIDO)
+    grupo_tabua = next(g for g in m.cozinha.views()[1] if g.tipo is TABUA)
+    assert 1 not in grupo_tabua.fila_espera
+    assert m.ocupadas() == {(TABUA, 0): 99}
+
+
+def test_sem_expiracao_na_demo(montar):
+    m = montar(expiracao=False)
+    p = m.pedir(salada(dur=0.2, paciencia=0.05))
+    m.cozinheiro()
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+
+
+def test_pausa_nao_expira(montar):
+    m = montar()
+    p = m.pedir(salada(dur=0.2, paciencia=0.3))
+    c = m.cozinheiro()
+    esperar(lambda: c.view().estado is EstadoCozinheiro.TRABALHANDO)
+    m.relogio.pausar()
+    time.sleep(0.5)
+    m.relogio.retomar()
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+
+
+def test_estacao_na_pausa_espera_retomar(montar):
+    m = montar(quantidade={TABUA: 1, PIA: 1, FOGAO: 1, BALCAO: 1})
+    reservas = m.cozinha.ocupar_todas(99, (TABUA,), NUNCA)
+    p = m.pedir(salada())
+    c = m.cozinheiro()
+    esperar(lambda: c.view().esperando is TABUA)
+    m.relogio.pausar()
+    m.cozinha.liberar(reservas)
+    esperar(lambda: m.ocupadas() == {(TABUA, 0): 1})
+    time.sleep(0.1)
+    assert c.view().progresso == 0
+    assert p.estado is EstadoPedido.EM_PREPARO
+    m.relogio.retomar()
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)

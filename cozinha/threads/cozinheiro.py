@@ -60,15 +60,33 @@ class Cozinheiro(threading.Thread):
                     break
             self._mudar(estado=LIVRE, pedido=None, etapa=None, progresso=0.0)
 
+    def _expirou(self, pedido: Pedido) -> bool:
+        return self._config.expiracao and pedido.expirou(self._relogio.agora())
+
     def _fazer_etapa(self, pedido: Pedido, etapa: Etapa) -> bool:
-        """Faz uma etapa. False se o pedido acabou (parar)."""
-        reservas = self._cozinha.ocupar_todas(self.id, etapa.estacoes,
-                                              self._parar.is_set, self._ao_mudar)
-        if reservas is None:
+        """Faz uma etapa. False se o pedido acabou (expirou ou parar)."""
+        if self._expirou(pedido):
+            self._pontuacao.registrar_perda(pedido)
             return False
+        reservas = self._cozinha.ocupar_todas(
+            self.id, etapa.estacoes,
+            cancelar=lambda: self._parar.is_set() or self._expirou(pedido),
+            ao_mudar=self._ao_mudar)
+        if reservas is None:
+            if not self._parar.is_set():
+                self._pontuacao.registrar_perda(pedido)      # desistiu porque expirou
+            return False
+        expirou = False
         try:
+            self._relogio.esperar_rodando(self._parar, self._config.tick)  # pegou na pausa: espera
             self._mudar(estado=TRABALHANDO, etapa=etapa.nome, progresso=0.0)
-            if not self._trabalhar(etapa.duracao):
+            # Na entrega, com o balcão na mão, o prato já está saindo: não expira mais.
+            vigiar = None if etapa.entrega else pedido
+            resultado = self._trabalhar(etapa.duracao, vigiar)
+            if resultado == "expirou":
+                expirou = True
+                return False
+            if resultado == "parar":
                 return False
             if etapa.entrega:
                 self._pontuacao.registrar_entrega(pedido, self._relogio.agora())
@@ -76,19 +94,29 @@ class Cozinheiro(threading.Thread):
         finally:
             self._cozinha.liberar(reservas)
             self._mudar(segurando=())
+            if expirou:
+                self._pontuacao.registrar_perda(pedido)
 
-    def _trabalhar(self, duracao: float) -> bool:
-        """Espera `duracao` de tempo de jogo em ticks. False se `parar`."""
+    def _trabalhar(self, duracao: float, vigiar: Pedido | None) -> str:
+        """Espera `duracao` de tempo de jogo em ticks pausáveis.
+
+        Devolve "ok", "parar" ou "expirou" (só se `vigiar` não for None).
+        """
+        tick = self._config.tick
         feito = 0.0
         anterior = self._relogio.agora()
         while feito < duracao:
-            if self._parar.wait(self._config.tick):
-                return False
+            self._relogio.esperar_rodando(self._parar, tick)
+            if self._parar.wait(tick):
+                return "parar"
             agora = self._relogio.agora()
             feito += agora - anterior
             anterior = agora
-            self._mudar(progresso=min(1.0, feito / duracao) if duracao else 1.0)
-        return True
+            self._mudar(progresso=min(1.0, feito / duracao))
+            if vigiar is not None and self._expirou(vigiar):
+                return "expirou"
+        self._mudar(progresso=1.0)
+        return "ok"
 
     # ---------- estado para a tela ----------
 
