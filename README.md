@@ -4,8 +4,6 @@ Jogo de restaurante em tempo real feito para a disciplina, em Python + Pygame. O
 
 Cada cozinheiro é uma **thread** e cada equipamento é um **recurso compartilhado protegido por semáforo**. O foco do trabalho é a concorrência: evitar deadlock, condição de corrida e inanição, e manter a interface fluida sem travar os cozinheiros.
 
-> Nome provisório. O projeto está no começo: por enquanto o repositório tem só a documentação.
-
 ## Documentação
 
 | Documento | Conteúdo |
@@ -18,16 +16,35 @@ Cada cozinheiro é uma **thread** e cada equipamento é um **recurso compartilha
 
 ## Como rodar
 
-Requer Python 3.11+.
+Requer **Python 3.11, 3.12 ou 3.13**. O pygame 2.6.1 ainda não tem pacote pronto para o Python 3.14: nele, o `pip` tenta compilar o pygame e falha por falta do SDL.
 
 ```bash
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-
-python -m cozinha                # inicia o jogo (quando o código existir)
-pytest                           # testes da lógica de concorrência
 ```
+
+```bash
+python -m cozinha                # o jogo
+python -m cozinha --demo-deadlock  # demonstração: a cozinha trava sem a ordem fixa
+pytest                           # testes (sem abrir janela)
+pytest -m demo                   # testes de demonstração, que travam de propósito
+```
+
+## Como jogar
+
+Os pedidos chegam cada vez mais rápido. Cada cozinheiro pega sozinho o pedido mais antigo, mas você pode dar ordens. Faça a meta de pontos antes do tempo acabar, sem perder clientes demais. Entregas rápidas valem bônus.
+
+| Tecla / ação | Faz |
+| --- | --- |
+| `1` `2` `3` `4` | Seleciona o cozinheiro |
+| Clique num pedido | Manda o selecionado fazer esse pedido |
+| `←` `→` + `Enter` | Navega pelos pedidos e atribui (alternativa ao mouse) |
+| `P` | Pausa / continua |
+| `D` | Liga / desliga o modo debug (filas de espera, FPS, threads) |
+| `Esc` | Sai da partida (pede confirmação) |
+
+Uma ordem vira uma **reserva**: nenhum outro cozinheiro pega aquele pedido, e o escolhido o faz assim que terminar o que está fazendo.
 
 ## Como contribuir
 

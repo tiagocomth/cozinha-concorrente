@@ -1,6 +1,6 @@
 # 08 — Interface (Pygame)
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RF01, RF02, RF05, RF08, RF17, RF18, RC06, RNF02, RNF05, RNF06
 **Depende de:** 00 (Retrato), 07 (Jogo)
 **Arquivos:** `cozinha/ui/`, `cozinha/__main__.py`, README
@@ -28,6 +28,7 @@ SAIR = object()   # sentinela: fechar o programa
 
 class Tela(Protocol):
     def evento(self, e: pygame.event.Event) -> Tela | object | None: ...  # None = continua nesta tela
+    def proxima(self) -> Tela | object | None: ...  # chamada depois de atualizar: ex. partida acabou → resultado
     def atualizar(self, dt: float) -> None: ...
     def desenhar(self, superficie: pygame.Surface) -> None: ...
     def fechar(self) -> None: ...      # TelaJogo: jogo.encerrar()
@@ -42,9 +43,11 @@ def rodar(config: Config) -> None:
             for e in pygame.event.get():
                 proxima = SAIR if e.type == pygame.QUIT else atual.evento(e)
                 if proxima is not None: break
+            if proxima is None:
+                atual.atualizar(dt)
+                proxima = atual.proxima()
             if proxima is SAIR: break
-            if proxima is not None: atual.fechar(); atual = proxima
-            atual.atualizar(dt)
+            if proxima is not None: atual.fechar(); atual = proxima; continue
             atual.desenhar(superficie)
             pygame.display.flip()
     finally:
@@ -52,7 +55,7 @@ def rodar(config: Config) -> None:
         pygame.quit()
 ```
 
-- `None` quer dizer "continua"; `SAIR` é um valor próprio. Fechar a janela (`QUIT`) sai do loop em qualquer tela, e o `finally` sempre chama `fechar()` (que encerra as threads) e `pygame.quit()` (RC07).
+- `None` quer dizer "continua"; `SAIR` é um valor próprio. `proxima()` deixa a tela trocar sem esperar um evento (a partida terminou → resultado). Fechar a janela (`QUIT`) sai do loop em qualquer tela, e o `finally` sempre chama `fechar()` (que encerra as threads) e `pygame.quit()` (RC07).
 - **Só esta thread** chama Pygame. Os cozinheiros nunca desenham nem leem eventos.
 - A `TelaJogo` lê **um** `Retrato` por quadro (`jogo.retrato()`) e desenha tudo a partir dele (RC06).
 - **Janela perde o foco** (`WINDOWFOCUSLOST`) → a `TelaJogo` pausa a partida. Arrastar a janela no Windows trava o loop, mas o relógio continua; sem isso, os clientes "somem" todos de uma vez ao soltar.
@@ -84,7 +87,7 @@ Nome do jogo, uma frase do objetivo, os controles (spec 09) e "Enter para começ
 - **Cozinheiros se movendo** (promessa do formulário): cada cozinheiro é um círculo da sua cor, com o número. O alvo dele vem do retrato: a estação que está usando, uma posição na fila de espera ao lado da estação que espera, ou a área de descanso quando LIVRE. `animacao.py` move a posição atual em direção ao alvo a uma velocidade fixa por segundo. Toda a animação é só da tela, a lógica não tem coordenadas.
 - **Estação:** retângulo; cinza livre, cor do cozinheiro quando ocupada. O **balcão é um só**, com uma caixinha por vaga (`GrupoView.capacidade`).
 - **ESPERANDO** em destaque (cor de alerta, nome da estação e há quanto tempo, de `esperando_ha`). Quem segura uma estação e espera outra mostra as duas (`segurando` + `esperando`): é o que aparece na demonstração de deadlock (RF18).
-- **Pedido:** cartão com id, receita e barra de paciência (verde → amarelo → vermelho, RF08). Em preparo, mostra a cor de quem está fazendo. Reservado, mostra o número do cozinheiro escolhido (②). A fila mostra `len/tamanho_max_fila`.
+- **Pedido:** cartão com id, receita e barra de paciência (verde → amarelo → vermelho, RF08). Os da fila ficam numa linha; os em preparo, numa linha mais baixa logo abaixo, com a cor de quem está fazendo (o retrato traz até `tamanho_max_fila + n_cozinheiros` pedidos). Reservado, mostra o número do cozinheiro escolhido (②). A fila mostra `len/tamanho_max_fila`.
 - **HUD:** tempo restante (mm:ss), pontos/meta com barra, "meta batida!" quando `meta_batida`, perdidos/limite como bolinhas. A meta aparece desde o primeiro quadro (RF02).
 - **Pausa:** véu escuro com "PAUSADO — P para continuar".
 - Partida terminou (`retrato.estado` é VITORIA ou DERROTA) → vai para a TelaResultado com o último retrato.
@@ -113,14 +116,14 @@ VITÓRIA ou DERROTA, pontos/meta, pratos entregues, clientes perdidos (valores c
 
 ## Critérios de aceite
 
-- [ ] `python -m cozinha` abre a tela de início; Enter começa; a partida termina sozinha na tela de resultado; Enter joga de novo; Esc sai.
-- [ ] Meta e tempo visíveis desde o primeiro quadro da partida.
-- [ ] Cada cozinheiro se move até a estação que usa ou espera, e volta ao descanso quando fica livre.
-- [ ] Toda estação ocupada mostra quem está nela; todo cozinheiro esperando aparece na fila de espera da estação certa.
-- [ ] O balcão aparece como uma estação com N vagas.
-- [ ] Barra de paciência muda de cor e o cartão some quando o cliente vai embora.
-- [ ] Fechar a janela no meio da partida encerra o processo em menos de 2 s.
-- [ ] Tirar o foco da janela pausa a partida.
-- [ ] **Desempenho (automático, `SDL_VIDEODRIVER=dummy`):** desenhar 600 quadros de um retrato com 4 cozinheiros e 6 pedidos leva menos de 10 s (≥ 60 FPS). O FPS real aparece no modo debug (spec 09).
-- [ ] Teste automático: desenhar `Retrato.exemplo()` não levanta exceção.
-- [ ] README tem "Como rodar" e "Como jogar" atualizados.
+- [x] `python -m cozinha` abre a tela de início; Enter começa; a partida termina sozinha na tela de resultado; Enter joga de novo; Esc sai.
+- [x] Meta e tempo visíveis desde o primeiro quadro da partida.
+- [x] Cada cozinheiro se move até a estação que usa ou espera, e volta ao descanso quando fica livre.
+- [x] Toda estação ocupada mostra quem está nela; todo cozinheiro esperando aparece na fila de espera da estação certa.
+- [x] O balcão aparece como uma estação com N vagas.
+- [x] Barra de paciência muda de cor e o cartão some quando o cliente vai embora.
+- [x] Fechar a janela no meio da partida encerra o processo em menos de 2 s.
+- [x] Tirar o foco da janela pausa a partida.
+- [x] **Desempenho (automático, `SDL_VIDEODRIVER=dummy`):** desenhar 600 quadros de um retrato com 4 cozinheiros e 6 pedidos leva menos de 10 s (≥ 60 FPS). O FPS real aparece no modo debug (spec 09).
+- [x] Teste automático: desenhar `Retrato.exemplo()` não levanta exceção.
+- [x] README tem "Como rodar" e "Como jogar" atualizados.

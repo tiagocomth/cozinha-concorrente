@@ -1,0 +1,166 @@
+"""As telas do jogo (spec 08): início, partida e resultado.
+
+Protocolo: `evento` e `proxima` devolvem None (continua), outra Tela, ou SAIR.
+Só a thread principal chama estes métodos (RC06).
+"""
+from __future__ import annotations
+
+import logging
+from typing import Protocol
+
+import pygame
+
+from cozinha.config import Config
+from cozinha.jogo import Jogo
+from cozinha.modelo.retrato import Retrato
+from cozinha.modelo.tipos import EstadoPartida
+from cozinha.ui import desenho, layout
+from cozinha.ui.animacao import Animacao
+
+log = logging.getLogger(__name__)
+SAIR = object()   # sentinela: fechar o programa
+ENTER = (pygame.K_RETURN, pygame.K_KP_ENTER)
+FIM = (EstadoPartida.VITORIA, EstadoPartida.DERROTA)
+
+CONTROLES = (
+    "1-4  seleciona o cozinheiro",
+    "clique num pedido (ou setas + Enter)  manda o selecionado fazer",
+    "P  pausa · D  modo debug · Esc  sair da partida",
+)
+
+
+class Tela(Protocol):
+    def evento(self, e: pygame.event.Event) -> Tela | object | None: ...
+    def proxima(self) -> Tela | object | None: ...
+    def atualizar(self, dt: float) -> None: ...
+    def desenhar(self, superficie: pygame.Surface) -> None: ...
+    def fechar(self) -> None: ...
+
+
+def _centro(y: int) -> tuple[int, int]:
+    return layout.JANELA[0] // 2, y
+
+
+class TelaInicio:
+    def __init__(self, config: Config) -> None:
+        self.config = config
+        self._fontes = layout.fontes()
+
+    def evento(self, e: pygame.event.Event) -> Tela | object | None:
+        if e.type == pygame.KEYDOWN and e.key in ENTER:
+            return TelaJogo(self.config)
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+            return SAIR
+        return None
+
+    def proxima(self) -> None:
+        return None
+
+    def atualizar(self, dt: float) -> None:
+        pass
+
+    def desenhar(self, sup: pygame.Surface) -> None:
+        f = self._fontes
+        sup.fill(layout.FUNDO)
+        desenho._texto(sup, f.grande, "Cozinha Concorrente", _centro(160), centro=True)
+        desenho._texto(sup, f.media,
+                       f"Faça {self.config.meta_pontos} pontos antes do tempo acabar, "
+                       f"sem perder {self.config.limite_perdidos} clientes.",
+                       _centro(230), centro=True)
+        for i, linha in enumerate(CONTROLES):
+            desenho._texto(sup, f.media, linha, _centro(320 + i * 36), layout.TEXTO_FRACO,
+                           centro=True)
+        desenho._texto(sup, f.media, "Enter para começar · Esc para sair", _centro(520),
+                       layout.DESTAQUE, centro=True)
+
+    def fechar(self) -> None:
+        pass
+
+
+class TelaJogo:
+    def __init__(self, config: Config, jogo: Jogo | None = None) -> None:
+        self.config = config
+        self.jogo = jogo if jogo is not None else Jogo(config)
+        self.jogo.iniciar()
+        self.fps = 0.0                      # o rodar atualiza com clock.get_fps()
+        self._fontes = layout.fontes()
+        self._animacao = Animacao()
+        self._retrato: Retrato = self.jogo.retrato()
+        self._animacao.atualizar(self._retrato, 0.0)
+        self._fechada = False
+
+    # ---------- eventos ----------
+
+    def evento(self, e: pygame.event.Event) -> Tela | object | None:
+        if e.type == pygame.WINDOWFOCUSLOST:
+            self.jogo.pausar()              # retomar é com P: o foco voltar não retoma
+        elif e.type == pygame.KEYDOWN and e.key == pygame.K_p:
+            self._alternar_pausa()
+        return None
+
+    def _alternar_pausa(self) -> None:
+        if self.jogo.retrato().estado is EstadoPartida.PAUSADA:
+            self.jogo.retomar()
+        else:
+            self.jogo.pausar()
+
+    def proxima(self) -> Tela | object | None:
+        if self._retrato.estado in FIM:
+            return TelaResultado(self.config, self._retrato)
+        return None
+
+    # ---------- quadro ----------
+
+    def atualizar(self, dt: float) -> None:
+        # Um RuntimeError aqui (thread morreu) sobe até o rodar, que encerra tudo (spec 07).
+        self.jogo.atualizar()
+        self._retrato = self.jogo.retrato()          # um retrato por quadro (RC06)
+        self._animacao.atualizar(self._retrato, dt)
+
+    def desenhar(self, sup: pygame.Surface) -> None:
+        r = self._retrato
+        desenho.desenhar_retrato(sup, r, self._animacao.posicoes, self._fontes)
+        if r.estado is EstadoPartida.PAUSADA:
+            desenho.desenhar_pausa(sup, self._fontes)
+
+    def fechar(self) -> None:
+        presas = self.jogo.encerrar()
+        if presas and not self._fechada:
+            log.warning("threads que não terminaram ao fechar a partida: %s", presas)
+        self._fechada = True
+
+
+class TelaResultado:
+    def __init__(self, config: Config, retrato: Retrato) -> None:
+        self.config = config
+        self.retrato = retrato
+        self._fontes = layout.fontes()
+
+    def evento(self, e: pygame.event.Event) -> Tela | object | None:
+        if e.type == pygame.KEYDOWN and e.key in ENTER:
+            return TelaJogo(self.config)            # jogar de novo: Jogo novo
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+            return SAIR
+        return None
+
+    def proxima(self) -> None:
+        return None
+
+    def atualizar(self, dt: float) -> None:
+        pass
+
+    def desenhar(self, sup: pygame.Surface) -> None:
+        f, r = self._fontes, self.retrato
+        sup.fill(layout.FUNDO)
+        vitoria = r.estado is EstadoPartida.VITORIA
+        desenho._texto(sup, f.grande, "VITÓRIA" if vitoria else "DERROTA", _centro(170),
+                       layout.META if vitoria else layout.ALERTA, centro=True)
+        linhas = (f"Pontos: {r.pontos} / {r.meta}", f"Pratos entregues: {r.entregues}",
+                  f"Clientes perdidos: {r.perdidos} / {r.limite_perdidos}")
+        for i, linha in enumerate(linhas):
+            desenho._texto(sup, f.media, linha, _centro(260 + i * 40), centro=True)
+        desenho._texto(sup, f.media, "Enter para jogar de novo · Esc para sair do jogo",
+                       _centro(480), layout.DESTAQUE, centro=True)
+
+    def fechar(self) -> None:
+        pass
