@@ -125,6 +125,8 @@ def _estresse(fila: FilaDePedidos, total_por_produtor: int, expirar=None) -> tup
             if p is not None:
                 with trava:
                     retirados.append(p.id)
+                if expirar:
+                    time.sleep(0.002)   # consumidores lentos: a fila enche e há o que expirar
 
     def observar() -> None:
         while not fim.is_set():
@@ -133,13 +135,12 @@ def _estresse(fila: FilaDePedidos, total_por_produtor: int, expirar=None) -> tup
             time.sleep(0.0005)
 
     def expirar_loop() -> None:
-        agora = 0.0
+        # Pedidos nascem em 0 com paciência 10: em agora=10 todos os que estão na fila vencem.
         while not fim.is_set():
-            agora += 0.5
-            for p in fila.remover_expirados(agora if agora < 15 else 0):
+            for p in fila.remover_expirados(10.0):
                 with trava:
                     expirados.append(p.id)
-            time.sleep(0.001)
+            time.sleep(0.002)
 
     produtores = [threading.Thread(target=produzir, daemon=True) for _ in range(2)]
     outros = [threading.Thread(target=consumir, args=(c,), daemon=True) for c in range(1, 5)]
@@ -165,3 +166,50 @@ def test_sem_duplicado():
     retirados, _, erros = _estresse(FilaDePedidos(6), 250)
     assert sorted(retirados) == list(range(1, 501))
     assert erros == []
+
+
+def test_remover_expirados():
+    fila = FilaDePedidos(6)
+    velho = fila.colocar(Criador(criado_em=0.0), 0.05)
+    novo = fila.colocar(lambda: Pedido(2, RECEITA, 5.0), 0.05)
+    fila.reservar(velho.id, 2)
+    assert fila.remover_expirados(12) == [velho]
+    assert velho.estado is EstadoPedido.AGUARDANDO
+    assert len(fila) == 1
+    assert [(v.id, v.reservado_para) for v in fila.views(12)] == [(novo.id, None)]
+
+
+def test_expirar_libera_vaga():
+    fila = FilaDePedidos(1)
+    fila.colocar(Criador(), 0.05)
+    assert fila.colocar(Criador(), 0.05) is None
+    fila.remover_expirados(10)
+    assert fila.colocar(Criador(), 0.05) is not None
+
+
+def test_ficha_fantasma():
+    fila, criar = FilaDePedidos(6), Criador()
+    _encher(fila, criar, 2)
+    assert len(fila.remover_expirados(10)) == 2
+    assert fila.retirar(1, 0.05) is None
+    assert fila.retirar(1, 0.05) is None
+    p = fila.colocar(criar, 0.05)
+    assert fila.retirar(1, 0.05) is p
+
+
+def test_estresse_com_expiracao():
+    retirados, expirados, erros = _estresse(FilaDePedidos(6), 250, expirar=True)
+    assert sorted(retirados + expirados) == list(range(1, 501))
+    assert expirados, "o teste deveria expirar alguns pedidos"
+    assert erros == []
+
+
+def test_views():
+    fila = FilaDePedidos(6)
+    _encher(fila, Criador(), 2)
+    fila.reservar(2, 3)
+    v1, v2 = fila.views(0)
+    assert (v1.id, v1.estado, v1.paciencia, v1.cozinheiro_id, v1.reservado_para) == (
+        1, EstadoPedido.AGUARDANDO, 1.0, None, None)
+    assert (v2.id, v2.reservado_para) == (2, 3)
+    assert v1.receita == "teste"

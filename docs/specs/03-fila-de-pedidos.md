@@ -1,6 +1,6 @@
 # 03 — Fila de pedidos
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RF07, RF09, RF10, RF15 (reserva do jogador), RC03 (corrida na fila)
 **Depende de:** 00
 **Arquivo:** `cozinha/modelo/fila.py`
@@ -83,13 +83,13 @@ Ninguém segura o `mutex` e espera outro semáforo. O mutex é sempre o último 
 
 ## Critérios de aceite (pytest)
 
-- [ ] **Sem pedido duplicado:** 2 produtores colocando 500 pedidos e 4 consumidores retirando; cada id sai exatamente uma vez.
-- [ ] **Nunca acima do máximo:** observado sob estresse, `len(fila) <= tamanho_max` sempre.
-- [ ] Fila cheia: `colocar(timeout=0.05)` devolve `None` e **não chama** `criar`.
-- [ ] Fila vazia: `retirar(timeout=0.05)` devolve `None`.
-- [ ] **Reserva:** pedido 7 reservado para C2; C1 livre retira e recebe outro pedido (ou `None`), nunca o 7; depois C2 retira e recebe o 7.
-- [ ] Reserva nova do mesmo cozinheiro substitui a antiga.
-- [ ] Com só pedidos reservados para outros, `retirar` devolve `None` e a ficha volta (o dono da reserva ainda consegue retirar).
-- [ ] `remover_expirados` tira só os vencidos, libera vaga, limpa a reserva e não muda o estado.
-- [ ] Depois de expirar pedidos, produtores e consumidores continuam funcionando (fichas fantasmas não travam nem duplicam).
-- [ ] Pedido retirado sai como EM_PREPARO com o `cozinheiro_id` certo.
+- [x] **Sem pedido duplicado:** 2 produtores colocando 500 pedidos e 4 consumidores retirando; cada id sai exatamente uma vez.
+- [x] **Nunca acima do máximo:** observado sob estresse, `len(fila) <= tamanho_max` sempre.
+- [x] Fila cheia: `colocar(timeout=0.05)` devolve `None` e **não chama** `criar`.
+- [x] Fila vazia: `retirar(timeout=0.05)` devolve `None`.
+- [x] **Reserva:** pedido 7 reservado para C2; C1 livre retira e recebe outro pedido (ou `None`), nunca o 7; depois C2 retira e recebe o 7.
+- [x] Reserva nova do mesmo cozinheiro substitui a antiga.
+- [x] Com só pedidos reservados para outros, `retirar` devolve `None` e a ficha volta (o dono da reserva ainda consegue retirar).
+- [x] `remover_expirados` tira só os vencidos, libera vaga, limpa a reserva e não muda o estado.
+- [x] Depois de expirar pedidos, produtores e consumidores continuam funcionando (fichas fantasmas não travam nem duplicam).
+- [x] Pedido retirado sai como EM_PREPARO com o `cozinheiro_id` certo.

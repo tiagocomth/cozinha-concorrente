@@ -12,6 +12,7 @@ import threading
 from collections.abc import Callable
 
 from cozinha.modelo.pedido import Pedido
+from cozinha.modelo.retrato import PedidoView
 from cozinha.modelo.tipos import EstadoPedido
 
 
@@ -72,6 +73,30 @@ class FilaDePedidos:
             return None
         self._vagas.release()
         return escolhido
+
+    def remover_expirados(self, agora: float) -> list[Pedido]:
+        """Tira os vencidos (RF09). Não muda o estado: quem marca PERDIDO é a Pontuacao.
+
+        Não mexe em `disponiveis`: a ficha que sobra vira "fantasma" e o próximo
+        retirar acha a lista vazia. Tentar um acquire aqui competiria com um
+        cozinheiro que já passou do primeiro passo do retirar.
+        """
+        with self._mutex:
+            vencidos = [p for p in self._pedidos if p.expirou(agora)]
+            for p in vencidos:
+                self._pedidos.remove(p)
+                self._reservas.pop(p.id, None)
+        for _ in vencidos:
+            self._vagas.release()
+        return vencidos
+
+    def views(self, agora: float) -> tuple[PedidoView, ...]:
+        with self._mutex:
+            return tuple(sorted(
+                (PedidoView(p.id, p.receita.nome, EstadoPedido.AGUARDANDO,
+                            p.paciencia_restante(agora), None, self._reservas.get(p.id))
+                 for p in self._pedidos),
+                key=lambda v: v.id))
 
     @property
     def tamanho_max(self) -> int:
