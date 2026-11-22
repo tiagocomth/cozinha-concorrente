@@ -286,3 +286,23 @@ def test_deadlock_demonstravel():
         t.join(timeout=1)
         assert not t.is_alive()
     assert _ocupadas(coz) == {}
+
+
+def test_liberar_duplicada_nao_solta_nada():
+    coz = _cozinha()
+    reservas = coz.ocupar_todas(1, (FOGAO,), NUNCA)
+    with pytest.raises(ValueError):
+        coz.liberar([reservas[0], reservas[0]])
+    assert _ocupadas(coz) == {(FOGAO, 0): 1}
+
+
+def test_ao_mudar_com_erro_solta_o_que_pegou():
+    coz = _cozinha()
+
+    def quebrar(segurando, esperando):
+        if segurando and esperando is not None:
+            raise RuntimeError("bug no cozinheiro")
+
+    with pytest.raises(RuntimeError):
+        coz.ocupar_todas(1, (FOGAO, BALCAO), NUNCA, quebrar)
+    assert _ocupadas(coz) == {}

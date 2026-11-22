@@ -88,20 +88,27 @@ class Cozinha:
             # Só na demonstração (spec 09): os pares pegam ao contrário e a cozinha trava.
             ordem = tuple(reversed(tipos))
         segurando: tuple[Reserva, ...] = ()
-        for tipo in ordem:
-            ao_mudar(segurando, tipo)                       # já segura X e espera este
-            reserva = self._grupos[tipo].ocupar(dono, cancelar)
-            if reserva is None:
-                self.liberar(segurando)
-                ao_mudar((), None)
-                return None
-            segurando += (reserva,)
-            ao_mudar(segurando, None)
+        try:
+            for tipo in ordem:
+                ao_mudar(segurando, tipo)                   # já segura X e espera este
+                reserva = self._grupos[tipo].ocupar(dono, cancelar)
+                if reserva is None:
+                    self.liberar(segurando)
+                    segurando = ()
+                    ao_mudar((), None)
+                    return None
+                segurando += (reserva,)
+                ao_mudar(segurando, None)
+        except BaseException:
+            self.liberar(segurando)                         # nunca deixa estação presa
+            raise
         return segurando
 
     def liberar(self, reservas: Iterable[Reserva]) -> None:
         """Solta na ordem inversa da aquisição. Aceita só uma parte das reservas."""
         reservas = tuple(reservas)
+        if len(set(reservas)) != len(reservas):
+            raise ValueError(f"reserva repetida: {reservas}")
         for r in reservas:                                  # valida tudo antes de soltar
             grupo = self._grupos.get(r.tipo)
             if grupo is None or not grupo.esta_ocupada(r):
