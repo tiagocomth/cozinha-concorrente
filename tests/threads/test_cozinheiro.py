@@ -308,3 +308,72 @@ def test_pedido_view(montar):
     assert (v.id, v.estado, v.cozinheiro_id, v.reservado_para) == (p.id, EstadoPedido.EM_PREPARO, 1, None)
     esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
     assert c.pedido_view(m.relogio.agora()) is None
+
+
+# ---------- Task 6 ----------
+
+def test_excecao_preenche_erro(montar):
+    m = montar()
+    quebrada = Etapa("quebrar", (TABUA,), 0.01)
+    object.__setattr__(quebrada, "estacoes", (99,))          # estação que não existe
+    receita = Receita("Quebrada", (quebrada,), 10, 60)
+    p = m.pedir(receita)
+    c = m.cozinheiro()
+    c.join(timeout=1)
+    assert not c.is_alive()
+    assert isinstance(c.erro, KeyError)
+    assert p.estado is EstadoPedido.PERDIDO
+    assert m.ocupadas() == {}
+
+
+def test_excecao_depois_da_entrega(montar, monkeypatch):
+    m = montar()
+    original = m.pontuacao.registrar_entrega
+
+    def entregar_e_quebrar(pedido, agora):
+        original(pedido, agora)
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(m.pontuacao, "registrar_entrega", entregar_e_quebrar)
+    p = m.pedir(salada())
+    c = m.cozinheiro()
+    c.join(timeout=1)
+    assert not c.is_alive()
+    assert isinstance(c.erro, RuntimeError) and str(c.erro) == "boom"
+    assert p.estado is EstadoPedido.ENTREGUE
+    assert m.pontuacao.valores()[2] == 0
+    assert m.ocupadas() == {}
+
+
+def test_estresse(montar):
+    m = montar(quantidade={TABUA: 2, PIA: 1, FOGAO: 2, BALCAO: 1})
+    receitas = [salada(paciencia=0.5), sopa(paciencia=0.5)]
+    pedidos: list[Pedido] = []
+    cozinheiros = [m.cozinheiro(i) for i in range(1, 5)]
+
+    def produzir() -> None:
+        for i in range(100):
+            while not m.parar.is_set():
+                p = m.pedir(receitas[i % 2])
+                if p is not None:
+                    pedidos.append(p)
+                    break
+
+    produtor = threading.Thread(target=produzir, daemon=True)
+    produtor.start()
+    produtor.join(timeout=10)
+    assert not produtor.is_alive()
+    # Pedidos que ficaram na fila: expiram e ninguém os pega se demorarem demais.
+    def terminou() -> bool:
+        for p in m.fila.remover_expirados(m.relogio.agora()):
+            m.pontuacao.registrar_perda(p)
+        return sum(m.pontuacao.valores()[1:]) == 100
+
+    esperar(terminou, prazo=10)
+    m.parar.set()
+    for c in cozinheiros:
+        c.join(timeout=10)
+        assert not c.is_alive()
+        assert c.erro is None
+    assert all(finalizado(p) for p in pedidos)
+    assert m.ocupadas() == {}

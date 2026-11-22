@@ -1,6 +1,7 @@
 """Thread do cozinheiro (spec 04): pega um pedido, faz as etapas nas estações e entrega."""
 from __future__ import annotations
 
+import logging
 import threading
 from threading import Event
 
@@ -15,6 +16,7 @@ from cozinha.modelo.retrato import CozinheiroView, PedidoView
 from cozinha.modelo.tipos import EstadoCozinheiro, EstadoPedido, TipoEstacao
 
 LIVRE, ESPERANDO, TRABALHANDO = EstadoCozinheiro
+log = logging.getLogger(__name__)
 
 
 class Cozinheiro(threading.Thread):
@@ -44,6 +46,21 @@ class Cozinheiro(threading.Thread):
     # ---------- loop ----------
 
     def run(self) -> None:
+        """Uma thread nunca morre em silêncio: a exceção fica em `erro` (spec 07 confere)."""
+        try:
+            self._loop()
+        except BaseException as exc:
+            # As estações já foram soltas pelos finally de _fazer_etapa / ocupar_todas.
+            with self._lock:
+                pedido = self._pedido
+            if pedido is not None and pedido.estado is EstadoPedido.EM_PREPARO:
+                self._pontuacao.registrar_perda(pedido)
+            self.erro = exc
+            log.exception("%s morreu com uma exceção", self.name)
+        finally:
+            self._mudar(estado=LIVRE, segurando=(), esperando=None)
+
+    def _loop(self) -> None:
         tick = self._config.tick
         while not self._parar.is_set():
             self._relogio.esperar_rodando(self._parar, tick)

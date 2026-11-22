@@ -1,6 +1,6 @@
 # 04 — Cozinheiro
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RF11, RF12, RF13, RF14, RF15 (lado da thread), RC01, RC07
 **Depende de:** 00, 02, 03, 06 (Relogio, Pontuacao)
 **Arquivo:** `cozinha/threads/cozinheiro.py`
@@ -72,15 +72,15 @@ enquanto não parar:
 
 ## Critérios de aceite (pytest, com receitas de teste de duração 0,01 s e `tempo_retirada=0`)
 
-- [ ] Um cozinheiro e um pedido de salada: o pedido termina ENTREGUE e a pontuação sobe.
-- [ ] Ao fim de cada etapa nenhuma estação fica com o id do cozinheiro (inspecionar `cozinha.views()`).
-- [ ] Empratar: o fogão é solto antes do fim da retirada (com `tempo_retirada=0,2`, o fogão fica livre enquanto o balcão ainda está ocupado).
-- [ ] **Balcão cheio bloqueia a entrega (RF13):** balcão de capacidade 1 ocupado por C1 na retirada; C2 fica ESPERANDO BALCÃO até C1 soltar.
-- [ ] Pedido que expira numa etapa normal vira PERDIDO, conta como perdido e as estações ficam livres.
-- [ ] Pedido que expira durante a retirada no balcão conta como ENTREGUE.
-- [ ] Pedido reservado para este cozinheiro na fila é o que ele pega.
-- [ ] Pausa: com o relógio pausado, o `progresso` não muda.
-- [ ] `view()` mostra `segurando=((FOGAO, 0),)` e `esperando=BALCAO` quando ele está nessa situação.
-- [ ] **Estresse:** 4 cozinheiros, 100 pedidos, balcão de capacidade 1; todos acabam ENTREGUE ou PERDIDO; `join(timeout=10)` sem nenhuma viva.
-- [ ] `parar.set()` no meio de uma etapa de 5 s: `join(timeout=1)` termina a thread e nada fica ocupado.
-- [ ] Exceção forçada dentro do `run` (receita com etapa inválida injetada): `erro` preenchido e estações livres.
+- [x] Um cozinheiro e um pedido de salada: o pedido termina ENTREGUE e a pontuação sobe.
+- [x] Ao fim de cada etapa nenhuma estação fica com o id do cozinheiro (inspecionar `cozinha.views()`).
+- [x] Empratar: o fogão é solto antes do fim da retirada (com `tempo_retirada=0,2`, o fogão fica livre enquanto o balcão ainda está ocupado).
+- [x] **Balcão cheio bloqueia a entrega (RF13):** balcão de capacidade 1 ocupado por C1 na retirada; C2 fica ESPERANDO BALCÃO até C1 soltar.
+- [x] Pedido que expira numa etapa normal vira PERDIDO, conta como perdido e as estações ficam livres.
+- [x] Pedido que expira durante a retirada no balcão conta como ENTREGUE.
+- [x] Pedido reservado para este cozinheiro na fila é o que ele pega.
+- [x] Pausa: com o relógio pausado, o `progresso` não muda.
+- [x] `view()` mostra `segurando=((FOGAO, 0),)` e `esperando=BALCAO` quando ele está nessa situação.
+- [x] **Estresse:** 4 cozinheiros, 100 pedidos, balcão de capacidade 1; todos acabam ENTREGUE ou PERDIDO; `join(timeout=10)` sem nenhuma viva.
+- [x] `parar.set()` no meio de uma etapa de 5 s: `join(timeout=1)` termina a thread e nada fica ocupado.
+- [x] Exceção forçada dentro do `run` (receita com etapa inválida injetada): `erro` preenchido e estações livres.
