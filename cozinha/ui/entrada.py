@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import pygame
 
 from cozinha.modelo.retrato import Retrato
+from cozinha.modelo.tipos import EstadoPedido
 
 
 @dataclass(frozen=True)
@@ -77,7 +78,8 @@ def traduzir(e: pygame.event.Event, retrato: Retrato, cursor: int | None,
         return AlternarDebug(), cursor
     if e.key == pygame.K_ESCAPE:
         return PedirSaida(), cursor
-    ids = [p.id for p in retrato.pedidos]
+    # Só os pedidos da fila podem receber ordem: o cursor anda por eles, na ordem da tela.
+    ids = [p.id for p in retrato.pedidos if p.estado is EstadoPedido.AGUARDANDO]
     if e.key in (pygame.K_LEFT, pygame.K_RIGHT):
         atual = _ajustar(cursor, ids)
         if atual is None:

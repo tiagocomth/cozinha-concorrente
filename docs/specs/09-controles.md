@@ -1,6 +1,6 @@
 # 09 — Controles e modo debug
 
-**Status:** feita (controles validados no plano da equipe)
+**Status:** feita (controles validados no plano da equipe), com a demo pendente de conferência numa janela real
 **Cobre:** RF15, RF16, RF19
 **Depende de:** 07 (Jogo), 08 (Interface)
 **Arquivo:** `cozinha/ui/entrada.py`
@@ -54,7 +54,7 @@ def traduzir(e: pygame.event.Event, retrato: Retrato,
 ```
 
 - Função pura: recebe o evento, o retrato atual, o cursor e os retângulos dos cartões de pedido (calculados pelo `layout.py`), e devolve a ação e o novo cursor. A `TelaJogo` executa a ação no `Jogo` e cuida da caixa de confirmação. Assim dá para testar os controles sem janela.
-- **O cursor é um `pedido_id`, não um índice.** A lista de pedidos muda a cada quadro; índice apontaria para outro pedido ou para fora da lista. `←`/`→` movem para o pedido anterior/seguinte em `retrato.pedidos`. Se o pedido do cursor sumiu, o cursor vai para o pedido mais próximo ou vira `None`.
+- **O cursor é um `pedido_id`, não um índice.** A lista de pedidos muda a cada quadro; índice apontaria para outro pedido ou para fora da lista. `←`/`→` movem para o pedido anterior/seguinte **da fila** (só os AGUARDANDO, que são os que podem receber ordem; os em preparo ficam na linha de baixo). Se o pedido do cursor sumiu, o cursor vai para o pedido mais próximo ou vira `None`.
 
 ## Modo debug (RF19), para a apresentação
 
@@ -87,4 +87,4 @@ O `Jogo.encerrar` funciona mesmo travado: quem espera estação sai pelo `cancel
 - [x] `Esc` na partida pausa e pergunta; `Esc` de novo retoma; `Esc` + `Enter` volta ao início com as threads encerradas.
 - [x] `Esc` com a partida já pausada por `P`: cancelar a saída mantém pausado.
 - [x] `D` mostra e esconde o debug sem afetar o jogo.
-- [x] `--demo-deadlock`: em até 30 s, os dois cozinheiros ficam travados (cada um segurando o que o outro espera) e continuam assim por mais 30 s; fechar a janela encerra o processo em menos de 2 s.
+- [ ] `--demo-deadlock`: em até 30 s, os dois cozinheiros ficam travados (cada um segurando o que o outro espera) e continuam assim por mais 30 s; fechar a janela encerra o processo em menos de 2 s. *(pendente: sem janela, trava em cerca de 10 s e o teste confere mais 2 s travado; falta a janela real por 30 s e o tempo de fechar pelo botão)*

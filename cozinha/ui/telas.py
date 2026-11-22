@@ -102,7 +102,9 @@ class TelaJogo:
             return None
         if self.confirmando:
             return self._evento_confirmacao(e)
-        r = self.jogo.retrato()
+        # O retrato desenhado, não um novo: entre o quadro e o clique a fila pode andar,
+        # e o clique tem que valer para o cartão que o jogador viu.
+        r = self._retrato
         cartoes = layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila)
         acao, self.cursor = entrada.traduzir(e, r, self.cursor, cartoes)
         match acao:
@@ -115,7 +117,7 @@ class TelaJogo:
             case entrada.AlternarDebug():
                 self.debug = not self.debug
             case entrada.PedirSaida():
-                self._pausada_antes = r.estado is EstadoPartida.PAUSADA
+                self._pausada_antes = self.jogo.retrato().estado is EstadoPartida.PAUSADA
                 self.jogo.pausar()
                 self.confirmando = True
         return None

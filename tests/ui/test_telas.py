@@ -120,7 +120,7 @@ def _esperar(cond, prazo: float = 3.0, tela=None) -> None:
 
 
 def _clique_no_pedido(t: TelaJogo, pedido_id: int) -> None:
-    r = t.jogo.retrato()
+    r = t._retrato                           # o que está desenhado na tela
     rect = layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila)[pedido_id]
     t.evento(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=rect.center, button=1))
 
@@ -132,16 +132,35 @@ def test_ordem_do_jogador(telas_abertas):
     def aguardando():
         return [p.id for p in t.jogo.retrato().pedidos if p.estado is EstadoPedido.AGUARDANDO]
 
-    _esperar(lambda: c2_ocupado() and aguardando(), tela=t)
+    _esperar(lambda: c2_ocupado() and len(aguardando()) >= 2, tela=t)
+    t.evento(tecla(pygame.K_p))              # pausado, ninguém tira pedido da fila
+    t.atualizar(1 / 60)                      # o retrato desenhado é o da pausa
     alvo = aguardando()[-1]
     t.evento(tecla(pygame.K_2))
     _clique_no_pedido(t, alvo)
     v = next(p for p in t.jogo.retrato().pedidos if p.id == alvo)
     assert v.reservado_para == 2
+    t.evento(tecla(pygame.K_p))
     _esperar(lambda: any(c.pedido_id == alvo for c in t.jogo.retrato().cozinheiros),
              prazo=5, tela=t)
     quem = next(c for c in t.jogo.retrato().cozinheiros if c.pedido_id == alvo)
     assert quem.id == 2
+
+
+def test_clique_usa_o_retrato_desenhado(telas_abertas):
+    """Entre o quadro e o clique a fila pode andar: vale o cartão que o jogador viu."""
+    from dataclasses import replace as _replace
+
+    from cozinha.modelo.retrato import Retrato
+    t = _tela_jogo(telas_abertas, duracao_partida=30)
+    t.jogo.pausar()
+    visto = _replace(Retrato.exemplo(), tamanho_max_fila=6)
+    t._retrato = visto
+    pedidos: list[int] = []
+    t.jogo.atribuir = pedidos.append
+    rect = layout.cartoes_pedidos(visto.pedidos, visto.tamanho_max_fila)[6]
+    t.evento(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=rect.center, button=1))
+    assert pedidos == [6]
 
 
 def test_esc_pergunta_e_cancela(telas_abertas):

@@ -40,10 +40,12 @@ def test_clique():
 
 
 def test_cursor_setas():
-    assert _t(pygame.K_RIGHT) == (None, 1)
-    assert _t(pygame.K_RIGHT, cursor=1) == (None, 2)
-    assert _t(pygame.K_LEFT, cursor=2) == (None, 1)
-    assert _t(pygame.K_LEFT, cursor=1) == (None, 1)
+    """No exemplo, 1-4 estão em preparo e só 5 e 6 estão na fila: o cursor só passa por eles."""
+    assert _t(pygame.K_RIGHT) == (None, 5)
+    assert _t(pygame.K_LEFT) == (None, 5)
+    assert _t(pygame.K_RIGHT, cursor=5) == (None, 6)
+    assert _t(pygame.K_LEFT, cursor=6) == (None, 5)
+    assert _t(pygame.K_LEFT, cursor=5) == (None, 5)
     assert _t(pygame.K_RIGHT, cursor=6) == (None, 6)
 
 
@@ -53,12 +55,16 @@ def test_enter_atribui():
     assert _t(pygame.K_RETURN) == (Confirmar(), None)
 
 
+def test_enter_em_pedido_em_preparo_nao_atribui():
+    acao, cursor = _t(pygame.K_RETURN, cursor=2)
+    assert acao == Confirmar() and cursor in (5, 6)
+
+
 def test_cursor_some():
-    sem_9 = replace(R, pedidos=tuple(p for p in R.pedidos if p.id != 4))
-    acao, cursor = _t(pygame.K_RIGHT, cursor=4, retrato=sem_9)
-    assert acao is None and cursor in {p.id for p in sem_9.pedidos}
     acao, cursor = _t(pygame.K_RIGHT, cursor=9)
-    assert cursor in {p.id for p in R.pedidos}
+    assert acao is None and cursor in (5, 6)
+    sem_fila = replace(R, pedidos=tuple(p for p in R.pedidos if p.id <= 4))
+    assert _t(pygame.K_RIGHT, cursor=5, retrato=sem_fila) == (None, None)
     vazio = replace(R, pedidos=())
     assert _t(pygame.K_RIGHT, cursor=3, retrato=vazio) == (None, None)
     assert _t(pygame.K_RETURN, cursor=3, retrato=vazio) == (Confirmar(), None)
