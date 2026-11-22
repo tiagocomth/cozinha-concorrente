@@ -1,6 +1,6 @@
 # 02 — Estações
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RF12, RF13, RC02, RC04 (deadlock), RC05 (pelo caminho real)
 **Depende de:** 00, 01
 **Arquivo:** `cozinha/modelo/estacoes.py`
@@ -70,13 +70,13 @@ Para a apresentação (spec 09), com `Config.demo_deadlock()`: os cozinheiros de
 
 ## Critérios de aceite (pytest)
 
-- [ ] **Exclusão mútua:** 4 threads × 200 usos de um grupo de 2 fogões; nunca a mesma `Reserva` com dois donos, nunca mais de 2 ocupadas.
-- [ ] `ocupar` devolve índices válidos e diferentes enquanto há vaga.
-- [ ] Liberar duas vezes levanta `ValueError`.
-- [ ] **Balcão cheio bloqueia (RF13):** com capacidade 1 ocupada, um segundo `ocupar_todas((BALCAO,))` só retorna depois do `liberar`.
-- [ ] **FIFO pelo caminho real:** fogão ocupado por 1 s; C3, C4 e C5 chamam `ocupar_todas((FOGAO,))` em sequência; recebem o fogão na ordem C3, C4, C5.
-- [ ] **Sem deadlock:** 6 threads pedindo `(FOGAO, BALCAO)` repetidamente com 1 fogão, balcão de capacidade 1 e tempos zero terminam 500 voltas; `join(timeout=5)` + `assert not is_alive()`.
-- [ ] **Deadlock demonstrável** (`@pytest.mark.demo`): o mesmo teste com `ordem_fixa=False` não termina em 5 s; depois, setar o cancelamento faz todas as threads saírem.
-- [ ] `ocupar_todas` cancelado no meio devolve `None` e não deixa nada ocupado.
-- [ ] `ao_mudar` é chamado com `((FOGAO, i),), BALCAO` quando o cozinheiro segura o fogão e espera o balcão.
-- [ ] `views()` reflete quem ocupa e quem espera.
+- [x] **Exclusão mútua:** 4 threads × 200 usos de um grupo de 2 fogões; nunca a mesma `Reserva` com dois donos, nunca mais de 2 ocupadas.
+- [x] `ocupar` devolve índices válidos e diferentes enquanto há vaga.
+- [x] Liberar duas vezes levanta `ValueError`.
+- [x] **Balcão cheio bloqueia (RF13):** com capacidade 1 ocupada, um segundo `ocupar_todas((BALCAO,))` só retorna depois do `liberar`.
+- [x] **FIFO pelo caminho real:** fogão ocupado por 1 s; C3, C4 e C5 chamam `ocupar_todas((FOGAO,))` em sequência; recebem o fogão na ordem C3, C4, C5.
+- [x] **Sem deadlock:** 6 threads pedindo `(FOGAO, BALCAO)` repetidamente com 1 fogão, balcão de capacidade 1 e tempos zero terminam 500 voltas; `join(timeout=5)` + `assert not is_alive()`.
+- [x] **Deadlock demonstrável** (`@pytest.mark.demo`): o mesmo teste com `ordem_fixa=False` não termina em 5 s; depois, setar o cancelamento faz todas as threads saírem.
+- [x] `ocupar_todas` cancelado no meio devolve `None` e não deixa nada ocupado.
+- [x] `ao_mudar` é chamado com `(Reserva(FOGAO, i),), BALCAO` quando o cozinheiro segura o fogão e espera o balcão. A conversão para `(tipo, indice)` do `CozinheiroView` fica no cozinheiro (spec 04).
+- [x] `views()` reflete quem ocupa e quem espera.
