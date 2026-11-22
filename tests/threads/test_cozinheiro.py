@@ -41,7 +41,7 @@ def esperar(condicao, prazo: float = 2.0) -> None:
 
 class Montagem:
     def __init__(self, **config) -> None:
-        self.config = replace(Config(), tick=0.005, tempo_retirada=0, **config)
+        self.config = replace(Config(), **{"tick": 0.005, "tempo_retirada": 0, **config})
         self.relogio = Relogio()
         self.relogio.iniciar()
         self.pontuacao = Pontuacao(self.config)
@@ -220,3 +220,91 @@ def test_estacao_na_pausa_espera_retomar(montar):
     assert p.estado is EstadoPedido.EM_PREPARO
     m.relogio.retomar()
     esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+
+
+# ---------- Task 5 ----------
+
+def test_empratar_solta_fogao_antes(montar):
+    m = montar(tempo_retirada=0.2, quantidade={TABUA: 1, PIA: 1, FOGAO: 1, BALCAO: 1})
+    p = m.pedir(sopa())
+    c = m.cozinheiro()
+    esperar(lambda: c.view().etapa == "empratar" and m.ocupadas() == {(BALCAO, 0): 1})
+    assert p.estado is EstadoPedido.EM_PREPARO       # ainda na retirada
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+
+
+def test_balcao_cheio_bloqueia(montar):
+    m = montar(tempo_retirada=0.3, quantidade={TABUA: 2, PIA: 1, FOGAO: 1, BALCAO: 1})
+    p1, p2 = m.pedir(salada()), m.pedir(salada())
+    c1, c2 = m.cozinheiro(1), m.cozinheiro(2)
+
+    def alguem_espera_balcao() -> bool:
+        return any(c.view().estado is EstadoCozinheiro.ESPERANDO and c.view().esperando is BALCAO
+                   for c in (c1, c2))
+
+    esperar(alguem_espera_balcao)
+    assert len([v for v in m.ocupadas() if v[0] is BALCAO]) == 1
+    esperar(lambda: p1.estado is p2.estado is EstadoPedido.ENTREGUE, prazo=3)
+
+
+def test_view_segurando_e_esperando(montar):
+    m = montar(quantidade={TABUA: 1, PIA: 1, FOGAO: 1, BALCAO: 1})
+    balcao = m.cozinha.ocupar_todas(99, (BALCAO,), NUNCA)
+    p = m.pedir(sopa())
+    c = m.cozinheiro()
+    esperar(lambda: c.view().esperando is BALCAO)
+    v = c.view()
+    assert v.segurando == ((FOGAO, 0),)
+    assert v.estado is EstadoCozinheiro.ESPERANDO
+    time.sleep(0.05)
+    assert c.view().esperando_ha > 0
+    m.cozinha.liberar(balcao)
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+    assert c.view().espera_total > 0
+
+
+def test_expira_na_retirada_conta_entregue(montar):
+    m = montar(tempo_retirada=0.3)
+    p = m.pedir(salada(paciencia=0.15))
+    c = m.cozinheiro()
+    esperar(lambda: c.view().etapa == "entregar")
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+    assert m.pontuacao.valores() == (20, 1, 0)
+
+
+def test_parar_no_meio_da_etapa(montar):
+    m = montar()
+    p = m.pedir(salada(dur=5))
+    c = m.cozinheiro()
+    esperar(lambda: c.view().estado is EstadoCozinheiro.TRABALHANDO)
+    m.parar.set()
+    c.join(timeout=1)
+    assert not c.is_alive()
+    assert m.ocupadas() == {}
+    assert m.pontuacao.valores() == (0, 0, 0)
+    assert p.estado is EstadoPedido.EM_PREPARO
+
+
+def test_parar_na_retirada(montar):
+    m = montar(tempo_retirada=5)
+    p = m.pedir(salada())
+    c = m.cozinheiro()
+    esperar(lambda: m.ocupadas() == {(BALCAO, 0): 1} and c.view().etapa == "entregar")
+    time.sleep(0.05)
+    m.parar.set()
+    c.join(timeout=1)
+    assert not c.is_alive()
+    assert m.ocupadas() == {}
+    assert m.pontuacao.valores() == (0, 0, 0)
+    assert p.estado is EstadoPedido.EM_PREPARO
+
+
+def test_pedido_view(montar):
+    m = montar()
+    p = m.pedir(salada(dur=0.3))
+    c = m.cozinheiro()
+    esperar(lambda: c.pedido_view(m.relogio.agora()) is not None)
+    v = c.pedido_view(m.relogio.agora())
+    assert (v.id, v.estado, v.cozinheiro_id, v.reservado_para) == (p.id, EstadoPedido.EM_PREPARO, 1, None)
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+    assert c.pedido_view(m.relogio.agora()) is None

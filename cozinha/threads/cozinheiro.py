@@ -89,6 +89,14 @@ class Cozinheiro(threading.Thread):
             if resultado == "parar":
                 return False
             if etapa.entrega:
+                # Solta o fogão (empratar) e deixa o prato no balcão enquanto o cliente
+                # retira: é isso que faz o balcão de capacidade limitada encher (RF13).
+                outras = tuple(r for r in reservas if r.tipo is not TipoEstacao.BALCAO)
+                self._cozinha.liberar(outras)
+                reservas = tuple(r for r in reservas if r.tipo is TipoEstacao.BALCAO)
+                self._mudar(segurando=tuple((r.tipo, r.indice) for r in reservas))
+                if self._trabalhar(self._config.tempo_retirada, None, progresso=False) == "parar":
+                    return False
                 self._pontuacao.registrar_entrega(pedido, self._relogio.agora())
             return True
         finally:
@@ -97,7 +105,7 @@ class Cozinheiro(threading.Thread):
             if expirou:
                 self._pontuacao.registrar_perda(pedido)
 
-    def _trabalhar(self, duracao: float, vigiar: Pedido | None) -> str:
+    def _trabalhar(self, duracao: float, vigiar: Pedido | None, progresso: bool = True) -> str:
         """Espera `duracao` de tempo de jogo em ticks pausáveis.
 
         Devolve "ok", "parar" ou "expirou" (só se `vigiar` não for None).
@@ -112,10 +120,12 @@ class Cozinheiro(threading.Thread):
             agora = self._relogio.agora()
             feito += agora - anterior
             anterior = agora
-            self._mudar(progresso=min(1.0, feito / duracao))
+            if progresso:
+                self._mudar(progresso=min(1.0, feito / duracao))
             if vigiar is not None and self._expirou(vigiar):
                 return "expirou"
-        self._mudar(progresso=1.0)
+        if progresso:
+            self._mudar(progresso=1.0)
         return "ok"
 
     # ---------- estado para a tela ----------
