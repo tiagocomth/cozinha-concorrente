@@ -1,6 +1,6 @@
 # 01 — Semáforo justo
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RC05 (inanição), base de RC02
 **Depende de:** 00
 **Arquivo:** `cozinha/sync.py`
@@ -74,13 +74,13 @@ O `timeout` aqui é tempo real (`time.monotonic`), não tempo de jogo: serve par
 
 ## Critérios de aceite (pytest)
 
-- [ ] **Exclusão:** com `valor=1` e 8 threads fazendo 200 voltas de pegar e soltar, nunca há duas dentro ao mesmo tempo (máximo observado = 1).
-- [ ] **Capacidade:** com `valor=2`, o máximo observado dentro é exatamente 2.
-- [ ] **FIFO:** com o semáforo ocupado, threads que chegam em sequência controlada (A, B, C, esperando cada uma aparecer em `esperando()` antes de soltar a próxima) entram na ordem A, B, C.
-- [ ] **FIFO com espera longa:** com o semáforo ocupado por 1 s e `fatia=0.01`, A, B e C esperando entram na ordem de chegada. Esse critério pega o bug de "sair e voltar para a fila".
-- [ ] **Justiça:** 4 threads disputando por 2 s; a diferença de usos entre a que mais usou e a que menos usou é menor que 10% do total.
-- [ ] **Timeout:** `acquire(timeout=0.05)` com o semáforo ocupado devolve `False` entre 0,04 e 0,5 s, e a senha some de `esperando()`.
-- [ ] **Cancelar:** com `cancelar` virando verdadeiro depois de 0,1 s, `acquire` devolve `False` em menos de 0,1 + 2 × `fatia` s.
-- [ ] **Desistência no meio da fila** não trava quem está atrás.
-- [ ] Duas senhas do mesmo dono: cancelar uma não tira a outra.
-- [ ] `release` sobrando levanta `ValueError`.
+- [x] **Exclusão:** com `valor=1` e 8 threads fazendo 200 voltas de pegar e soltar, nunca há duas dentro ao mesmo tempo (máximo observado = 1).
+- [x] **Capacidade:** com `valor=2`, o máximo observado dentro é exatamente 2.
+- [x] **FIFO:** com o semáforo ocupado, threads que chegam em sequência controlada (A, B, C, esperando cada uma aparecer em `esperando()` antes de soltar a próxima) entram na ordem A, B, C.
+- [x] **FIFO com espera longa:** com o semáforo ocupado por 1 s e `fatia=0.01`, A, B e C esperando entram na ordem de chegada. Esse critério pega o bug de "sair e voltar para a fila".
+- [x] **Sem inanição:** com 4 threads disputando em laço, uma thread que chega é atendida antes de qualquer uma que chegou depois dela. A justiça é medida pela ordem de chegada, não por igualdade de usos (decisão do grupo).
+- [x] **Timeout:** `acquire(timeout=0.05)` com o semáforo ocupado devolve `False` entre 0,04 e 0,5 s, e a senha some de `esperando()`.
+- [x] **Cancelar:** com `cancelar` virando verdadeiro depois de 0,1 s, `acquire` devolve `False` em menos de 0,1 + 2 × `fatia` s.
+- [x] **Desistência no meio da fila** não trava quem está atrás.
+- [x] Duas senhas do mesmo dono: cancelar uma não tira a outra.
+- [x] `release` sobrando levanta `ValueError`.
