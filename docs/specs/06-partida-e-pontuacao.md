@@ -1,6 +1,6 @@
 # 06 — Relógio, pontuação e partida
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RF01–RF04, RF09, RF14, RF16 (pausa), RC03 (corrida na pontuação)
 **Depende de:** 00
 **Arquivos:** `cozinha/modelo/relogio.py`, `pontuacao.py`, `partida.py`
@@ -21,7 +21,7 @@ class Relogio:
     def congelar(self) -> None: ...        # fim da partida: agora() para de andar para sempre
     @property
     def pausado(self) -> bool: ...
-    def esperar_rodando(self, parar: Event, fatia: float) -> None: ...
+    def esperar_rodando(self, parar: Event, fatia: float = TICK_PADRAO) -> None: ...  # padrão = Config().tick
 ```
 
 - Guarda o início e o total de tempo pausado, sob um `Lock`. `agora()` = `fonte() - inicio - total_pausado`, parado durante a pausa e depois de `congelar`.
@@ -88,13 +88,13 @@ PRONTA ──iniciar──▶ RODANDO ◀──retomar── PAUSADA
 
 ## Critérios de aceite (pytest)
 
-- [ ] `Relogio` com fonte falsa: avança 10 s, pausa, avança 5 s, retoma, avança 2 s → `agora() == 12`.
-- [ ] `agora()` antes de `iniciar` é 0; depois de `congelar`, não muda mais.
-- [ ] `esperar_rodando` volta em menos de 2 × `fatia` quando `parar` é setado durante a pausa.
-- [ ] **Sem corrida:** 8 threads × 500 `registrar_entrega` de pedidos diferentes → `pontos` é exatamente a soma esperada.
-- [ ] Bônus: com paciência cheia dá `pontos + bonus_maximo`; no fim da paciência, só `pontos`.
-- [ ] Registrar o mesmo pedido duas vezes levanta `ValueError`.
-- [ ] Depois de `fechar`, `registrar_entrega` devolve 0 e `valores()` não muda.
-- [ ] Partida: tempo acaba com pontos ≥ meta → VITORIA; abaixo → DERROTA; perdidos atinge o limite antes → DERROTA na hora.
-- [ ] Depois do fim, `tempo_restante()` fica fixo (≥ 0) e o placar não muda.
-- [ ] Pausar e retomar não mudam o tempo restante enquanto pausado.
+- [x] `Relogio` com fonte falsa: avança 10 s, pausa, avança 5 s, retoma, avança 2 s → `agora() == 12`.
+- [x] `agora()` antes de `iniciar` é 0; depois de `congelar`, não muda mais.
+- [x] `esperar_rodando` volta em menos de 2 × `fatia` quando `parar` é setado durante a pausa.
+- [x] **Sem corrida:** 8 threads × 500 `registrar_entrega` de pedidos diferentes → `pontos` é exatamente a soma esperada.
+- [x] Bônus: com paciência cheia dá `pontos + bonus_maximo`; no fim da paciência, só `pontos`.
+- [x] Registrar o mesmo pedido duas vezes levanta `ValueError`.
+- [x] Depois de `fechar`, `registrar_entrega` devolve 0 e `valores()` não muda.
+- [x] Partida: tempo acaba com pontos ≥ meta → VITORIA; abaixo → DERROTA; perdidos atinge o limite antes → DERROTA na hora.
+- [x] Depois do fim, `tempo_restante()` fica fixo (≥ 0) e o placar não muda.
+- [x] Pausar e retomar não mudam o tempo restante enquanto pausado.
