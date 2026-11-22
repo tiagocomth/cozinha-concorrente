@@ -39,6 +39,7 @@ CORES_COZINHEIROS: tuple[Cor, ...] = (
 HUD_ALTURA = 56
 BARRA_PONTOS = pygame.Rect(420, 18, 320, 20)
 BOLINHA_RAIO = 8
+MAX_BOLINHAS = 10             # acima disso, perdidos vira texto
 
 # Faixa de pedidos: uma linha para a fila, outra (mais baixa) para os em preparo
 PEDIDOS_TITULO_Y = HUD_ALTURA + 8

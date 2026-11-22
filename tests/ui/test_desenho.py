@@ -93,3 +93,12 @@ def test_cozinheiro_visivel_sobre_a_propria_estacao(tela):
     desenho.desenhar_cozinheiro(tela, c, (200, 200), layout.fontes())
     borda = tela.get_at((200 + layout.COZINHEIRO_RAIO + 1, 200))[:3]
     assert borda != cor
+
+
+def test_hud_com_limite_de_perdidos_alto(tela):
+    """A demo de deadlock usa limite_perdidos=1000: as bolinhas não podem invadir o HUD."""
+    r = replace(Retrato.exemplo(), limite_perdidos=1000, perdidos=0)
+    tela.fill(layout.FUNDO)
+    desenho.desenhar_hud(tela, r, layout.fontes())
+    esquerda = {tela.get_at((x, y))[:3] for x in range(0, 400) for y in range(10, 46)}
+    assert layout.LIVRE not in esquerda

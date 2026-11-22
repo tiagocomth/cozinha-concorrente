@@ -1,6 +1,6 @@
 # 09 — Controles e modo debug
 
-**Status:** proposta, os controles precisam ser validados com o grupo
+**Status:** feita (controles validados no plano da equipe)
 **Cobre:** RF15, RF16, RF19
 **Depende de:** 07 (Jogo), 08 (Interface)
 **Arquivo:** `cozinha/ui/entrada.py`
@@ -45,7 +45,9 @@ class AlternarPausa: ...
 class AlternarDebug: ...
 @dataclass(frozen=True)
 class PedirSaida: ...
-Acao = Selecionar | Atribuir | AlternarPausa | AlternarDebug | PedirSaida
+@dataclass(frozen=True)
+class Confirmar: ...      # Enter sem pedido no cursor (ex.: confirmar a saída)
+Acao = Selecionar | Atribuir | AlternarPausa | AlternarDebug | PedirSaida | Confirmar
 
 def traduzir(e: pygame.event.Event, retrato: Retrato,
              cursor: int | None, cartoes: Mapping[int, pygame.Rect]) -> tuple[Acao | None, int | None]: ...
@@ -58,6 +60,7 @@ def traduzir(e: pygame.event.Event, retrato: Retrato,
 
 Ligado com `D`, por cima da tela normal:
 
+- **Onde fica:** a parte por estação numa coluna à direita do balcão (as estações continuam visíveis); a parte por cozinheiro no lugar do painel inferior.
 - **Por estação:** quem está dentro e a fila de espera completa (`GrupoView.fila_espera`), com há quanto tempo cada um espera (`esperando_ha`).
 - **Por cozinheiro:** estado, o que está segurando e o que está esperando (`segurando`, `esperando`), tempo total esperando na partida (`espera_total`).
 - **Contadores:** pedidos na fila / máximo, FPS (do `Clock` do Pygame), threads vivas (`threading.active_count()`).
@@ -77,11 +80,11 @@ O `Jogo.encerrar` funciona mesmo travado: quem espera estação sai pelo `cancel
 
 ## Critérios de aceite
 
-- [ ] `traduzir` testado sem janela: `1` → `Selecionar(1)`; `P` → `AlternarPausa()`; `D` → `AlternarDebug()`; `Esc` → `PedirSaida()`; clique dentro do cartão do pedido 7 → `Atribuir(7)`; clique fora → `None`.
-- [ ] Cursor no pedido 9 e o pedido 9 some do retrato: o próximo `→` não levanta exceção e aponta para um pedido que existe.
-- [ ] Na partida: selecionar C2 ocupado e clicar no pedido 7 com C1 livre; C1 não pega o 7; quando C2 fica livre, pega exatamente o 7.
-- [ ] `P` pausa tudo (tempo, paciência, progresso) e `P` de novo retoma.
-- [ ] `Esc` na partida pausa e pergunta; `Esc` de novo retoma; `Esc` + `Enter` volta ao início com as threads encerradas.
-- [ ] `Esc` com a partida já pausada por `P`: cancelar a saída mantém pausado.
-- [ ] `D` mostra e esconde o debug sem afetar o jogo.
-- [ ] `--demo-deadlock`: em até 30 s, os dois cozinheiros ficam travados (cada um segurando o que o outro espera) e continuam assim por mais 30 s; fechar a janela encerra o processo em menos de 2 s.
+- [x] `traduzir` testado sem janela: `1` → `Selecionar(1)`; `P` → `AlternarPausa()`; `D` → `AlternarDebug()`; `Esc` → `PedirSaida()`; clique dentro do cartão do pedido 7 → `Atribuir(7)`; clique fora → `None`.
+- [x] Cursor no pedido 9 e o pedido 9 some do retrato: o próximo `→` não levanta exceção e aponta para um pedido que existe.
+- [x] Na partida: selecionar C2 ocupado e clicar no pedido 7 com C1 livre; C1 não pega o 7; quando C2 fica livre, pega exatamente o 7.
+- [x] `P` pausa tudo (tempo, paciência, progresso) e `P` de novo retoma.
+- [x] `Esc` na partida pausa e pergunta; `Esc` de novo retoma; `Esc` + `Enter` volta ao início com as threads encerradas.
+- [x] `Esc` com a partida já pausada por `P`: cancelar a saída mantém pausado.
+- [x] `D` mostra e esconde o debug sem afetar o jogo.
+- [x] `--demo-deadlock`: em até 30 s, os dois cozinheiros ficam travados (cada um segurando o que o outro espera) e continuam assim por mais 30 s; fechar a janela encerra o processo em menos de 2 s.

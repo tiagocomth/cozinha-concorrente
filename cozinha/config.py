@@ -67,5 +67,8 @@ class Config:
         """Cenário que trava sem a ordem fixa (spec 09, --demo-deadlock)."""
         quantidade = {TABUA: 2, PIA: 1, FOGAO: 1, BALCAO: 1}
         sopa = tuple(r for r in RECEITAS if r.nome == "Sopa")
+        # Pedidos a cada 1 s: os dois cozinheiros ficam sempre ocupados e se cruzam no
+        # empratar (um segura o fogão, o outro o balcão) em poucos segundos.
         return replace(cls(), ordem_fixa=False, expiracao=False, quantidade=quantidade,
-                       receitas=sopa, n_cozinheiros=2, limite_perdidos=1000)
+                       receitas=sopa, n_cozinheiros=2, limite_perdidos=1000,
+                       intervalo_inicial=1.0, intervalo_minimo=1.0)

@@ -45,6 +45,11 @@ def desenhar_hud(sup: pygame.Surface, r: Retrato, f: Fontes) -> None:
     _barra(sup, layout.BARRA_PONTOS, r.pontos / r.meta if r.meta else 1.0, layout.META)
     if r.meta_batida:
         _texto(sup, f.media, "meta batida!", (layout.BARRA_PONTOS.right + 16, 18), layout.META)
+    if r.limite_perdidos > layout.MAX_BOLINHAS:      # ex.: a demo de deadlock (limite 1000)
+        texto = f"Perdidos {r.perdidos} / {r.limite_perdidos}"
+        largura = f.media.size(texto)[0]
+        _texto(sup, f.media, texto, (layout.JANELA[0] - layout.MARGEM - largura, 18))
+        return
     x = layout.JANELA[0] - layout.MARGEM - r.limite_perdidos * 2 * (layout.BOLINHA_RAIO + 4)
     _texto(sup, f.media, "Perdidos", (x - 100, 18))
     for i in range(r.limite_perdidos):

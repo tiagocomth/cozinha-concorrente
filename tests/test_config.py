@@ -65,3 +65,5 @@ def test_demo_deadlock():
     assert c.n_cozinheiros == 2
     assert [r.nome for r in c.receitas] == ["Sopa"]
     assert c.limite_perdidos >= 1000
+    # Pedidos chegando rápido: os dois cozinheiros ficam sempre ocupados e se cruzam no empratar.
+    assert c.intervalo_inicial <= 2 and c.intervalo_minimo <= 2
