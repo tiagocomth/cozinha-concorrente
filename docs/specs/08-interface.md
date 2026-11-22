@@ -28,6 +28,7 @@ SAIR = object()   # sentinela: fechar o programa
 
 class Tela(Protocol):
     def evento(self, e: pygame.event.Event) -> Tela | object | None: ...  # None = continua nesta tela
+    def proxima(self) -> Tela | object | None: ...  # chamada depois de atualizar: ex. partida acabou → resultado
     def atualizar(self, dt: float) -> None: ...
     def desenhar(self, superficie: pygame.Surface) -> None: ...
     def fechar(self) -> None: ...      # TelaJogo: jogo.encerrar()
@@ -42,9 +43,11 @@ def rodar(config: Config) -> None:
             for e in pygame.event.get():
                 proxima = SAIR if e.type == pygame.QUIT else atual.evento(e)
                 if proxima is not None: break
+            if proxima is None:
+                atual.atualizar(dt)
+                proxima = atual.proxima()
             if proxima is SAIR: break
-            if proxima is not None: atual.fechar(); atual = proxima
-            atual.atualizar(dt)
+            if proxima is not None: atual.fechar(); atual = proxima; continue
             atual.desenhar(superficie)
             pygame.display.flip()
     finally:
@@ -52,7 +55,7 @@ def rodar(config: Config) -> None:
         pygame.quit()
 ```
 
-- `None` quer dizer "continua"; `SAIR` é um valor próprio. Fechar a janela (`QUIT`) sai do loop em qualquer tela, e o `finally` sempre chama `fechar()` (que encerra as threads) e `pygame.quit()` (RC07).
+- `None` quer dizer "continua"; `SAIR` é um valor próprio. `proxima()` deixa a tela trocar sem esperar um evento (a partida terminou → resultado). Fechar a janela (`QUIT`) sai do loop em qualquer tela, e o `finally` sempre chama `fechar()` (que encerra as threads) e `pygame.quit()` (RC07).
 - **Só esta thread** chama Pygame. Os cozinheiros nunca desenham nem leem eventos.
 - A `TelaJogo` lê **um** `Retrato` por quadro (`jogo.retrato()`) e desenha tudo a partir dele (RC06).
 - **Janela perde o foco** (`WINDOWFOCUSLOST`) → a `TelaJogo` pausa a partida. Arrastar a janela no Windows trava o loop, mas o relógio continua; sem isso, os clientes "somem" todos de uma vez ao soltar.
