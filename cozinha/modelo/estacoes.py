@@ -28,7 +28,7 @@ class GrupoDeEstacoes:
         self._fatia = fatia
         self._semaforo = SemaforoJusto(quantidade)       # quantos podem estar dentro
         self._lock = threading.Lock()                     # curto: só para escolher/marcar
-        self._ocupada_por: list[int | None] = [None] * quantidade
+        self._ocupacoes: list[tuple[Reserva, int] | None] = [None] * quantidade
 
     def ocupar(self, dono: int, cancelar: Callable[[], bool]) -> Reserva | None:
         """Espera a vez sem sair da fila. None se `cancelar()` ficar verdadeiro."""
@@ -36,15 +36,18 @@ class GrupoDeEstacoes:
             return None
         with self._lock:
             # O semáforo garante vaga: sempre há uma livre.
-            indice = self._ocupada_por.index(None)
-            self._ocupada_por[indice] = dono
-        return Reserva(self.tipo, indice)
+            indice = self._ocupacoes.index(None)
+            reserva = Reserva(self.tipo, indice)
+            self._ocupacoes[indice] = (reserva, dono)
+        return reserva
 
     def _ocupada(self, reserva: Reserva) -> bool:
         """Chamado com o lock."""
-        return (reserva.tipo is self.tipo
-                and 0 <= reserva.indice < len(self._ocupada_por)
-                and self._ocupada_por[reserva.indice] is not None)
+        if reserva.tipo is not self.tipo or not 0 <= reserva.indice < len(self._ocupacoes):
+            return False
+        ocupacao = self._ocupacoes[reserva.indice]
+        # O índice pode ter sido reutilizado por outra aquisição.
+        return ocupacao is not None and ocupacao[0] is reserva
 
     def esta_ocupada(self, reserva: Reserva) -> bool:
         with self._lock:
@@ -54,13 +57,13 @@ class GrupoDeEstacoes:
         with self._lock:
             if not self._ocupada(reserva):
                 raise ValueError(f"reserva {reserva} não está ocupada neste grupo")
-            self._ocupada_por[reserva.indice] = None
+            self._ocupacoes[reserva.indice] = None
         self._semaforo.release()                          # só depois de marcar livre
 
     def views(self) -> tuple[EstacaoView, ...]:
         with self._lock:
-            return tuple(EstacaoView(self.tipo, i, dono)
-                         for i, dono in enumerate(self._ocupada_por))
+            return tuple(EstacaoView(self.tipo, i, ocupacao[1] if ocupacao else None)
+                         for i, ocupacao in enumerate(self._ocupacoes))
 
     def view(self) -> GrupoView:
         return GrupoView(self.tipo, self._semaforo.capacidade, self._semaforo.esperando())
@@ -81,6 +84,8 @@ class Cozinha:
 
         Quem segura Y > X nunca espera X, então não há ciclo de espera: sem deadlock.
         """
+        if len(set(tipos)) != len(tipos):
+            raise ValueError(f"tipos de estação repetidos: {tipos}")
         if self._ordem_fixa and list(tipos) != sorted(tipos):
             raise ValueError(f"tipos fora da ordem fixa: {tipos}")
         ordem = tipos
@@ -105,7 +110,7 @@ class Cozinha:
         return segurando
 
     def liberar(self, reservas: Iterable[Reserva]) -> None:
-        """Solta na ordem inversa da aquisição. Aceita só uma parte das reservas."""
+        """Solta as reservas originais na ordem inversa. Aceita um subconjunto."""
         reservas = tuple(reservas)
         if len(set(reservas)) != len(reservas):
             raise ValueError(f"reserva repetida: {reservas}")
