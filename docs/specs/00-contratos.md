@@ -1,6 +1,6 @@
 # 00 — Contratos
 
-**Status:** proposta, validar com o grupo antes de qualquer código
+**Status:** feita
 **Cobre:** RNF01, RNF03, RNF04 (infra de testes), RC06
 **Depende de:** nada. Todas as outras specs dependem desta.
 
@@ -263,12 +263,12 @@ Fora o `encerrar`, nenhum desses métodos pode bloquear mais que um lock curto: 
 
 ## Critérios de aceite
 
-- [ ] `Config()` e `dataclasses.replace(Config(), n_cozinheiros=1)` funcionam; `Config().quantidade[TABUA] = 3` levanta `TypeError`.
-- [ ] `Config(duracao_partida=60).validar_para_jogo()` levanta `ValueError`; `Config()` passa.
-- [ ] `Config.demo_deadlock()` tem `ordem_fixa=False`, `expiracao=False`, 1 fogão e balcão de capacidade 1.
-- [ ] `Etapa(estacoes=(BALCAO, FOGAO))` vira `(FOGAO, BALCAO)`; estação repetida levanta `ValueError`.
-- [ ] Receita com BALCÃO fora da última etapa levanta `ValueError`; toda receita de `RECEITAS` passa.
-- [ ] `Pedido.paciencia_restante` vai de 1 a 0 e não fica negativa; `expirou` é verdadeiro a partir do prazo.
-- [ ] `Retrato.exemplo()` existe e tem pelo menos um cozinheiro em cada estado.
-- [ ] Um teste garante que nada fora de `cozinha/ui` e `__main__.py` importa `pygame`.
-- [ ] `pytest` roda a suíte sem os testes `demo`; `pytest -m demo` roda só eles.
+- [x] `Config()` e `dataclasses.replace(Config(), n_cozinheiros=1)` funcionam; `Config().quantidade[TABUA] = 3` levanta `TypeError`.
+- [x] `Config(duracao_partida=60).validar_para_jogo()` levanta `ValueError`; `Config()` passa.
+- [x] `Config.demo_deadlock()` tem `ordem_fixa=False`, `expiracao=False`, 1 fogão e balcão de capacidade 1.
+- [x] `Etapa(estacoes=(BALCAO, FOGAO))` vira `(FOGAO, BALCAO)`; estação repetida levanta `ValueError`.
+- [x] Receita com BALCÃO fora da última etapa levanta `ValueError`; toda receita de `RECEITAS` passa.
+- [x] `Pedido.paciencia_restante` vai de 1 a 0 e não fica negativa; `expirou` é verdadeiro a partir do prazo.
+- [x] `Retrato.exemplo()` existe e tem pelo menos um cozinheiro em cada estado.
+- [x] Um teste garante que nada fora de `cozinha/ui` e `__main__.py` importa `pygame`.
+- [x] `pytest` roda a suíte sem os testes `demo`; `pytest -m demo` roda só eles.
