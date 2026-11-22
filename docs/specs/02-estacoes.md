@@ -78,5 +78,5 @@ Para a apresentação (spec 09), com `Config.demo_deadlock()`: os cozinheiros de
 - [ ] **Sem deadlock:** 6 threads pedindo `(FOGAO, BALCAO)` repetidamente com 1 fogão, balcão de capacidade 1 e tempos zero terminam 500 voltas; `join(timeout=5)` + `assert not is_alive()`.
 - [ ] **Deadlock demonstrável** (`@pytest.mark.demo`): o mesmo teste com `ordem_fixa=False` não termina em 5 s; depois, setar o cancelamento faz todas as threads saírem.
 - [ ] `ocupar_todas` cancelado no meio devolve `None` e não deixa nada ocupado.
-- [ ] `ao_mudar` é chamado com `((FOGAO, i),), BALCAO` quando o cozinheiro segura o fogão e espera o balcão.
+- [ ] `ao_mudar` é chamado com `(Reserva(FOGAO, i),), BALCAO` quando o cozinheiro segura o fogão e espera o balcão. A conversão para `(tipo, indice)` do `CozinheiroView` fica no cozinheiro (spec 04).
 - [ ] `views()` reflete quem ocupa e quem espera.
