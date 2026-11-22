@@ -130,3 +130,62 @@ def test_fim_sinaliza_parada(novo_jogo, fonte_falsa):
     j.atualizar()
     assert j._partida.terminou
     assert j._parar.is_set()
+
+
+# ---------- Task 4 ----------
+
+from cozinha.modelo.pedido import Pedido  # noqa: E402
+from cozinha.modelo.retrato import PedidoView  # noqa: E402
+from cozinha.modelo.tipos import EstadoCozinheiro, EstadoPedido  # noqa: E402
+
+
+def test_retrato_antes_de_iniciar(novo_jogo):
+    r = novo_jogo().retrato()
+    assert r.estado is EstadoPartida.PRONTA
+    assert r.tempo_restante == 3
+    assert r.pedidos == ()
+    assert [c.estado for c in r.cozinheiros] == [EstadoCozinheiro.LIVRE] * 2
+    assert r.selecionado is None
+    assert (r.meta, r.limite_perdidos, r.tamanho_max_fila) == (300, 5, 6)
+    assert len(r.estacoes) == 7 and len(r.grupos) == 4
+
+
+def test_retrato_em_loop(novo_jogo):
+    j = novo_jogo(config_rapida(duracao_partida=10))
+    j.iniciar()
+    tempos: list[float] = []
+    fim = time.monotonic() + 1
+    while time.monotonic() < fim:
+        inicio = time.perf_counter()
+        r = j.retrato()
+        tempos.append(time.perf_counter() - inicio)
+        ids = [p.id for p in r.pedidos]
+        assert ids == sorted(set(ids))
+        j.atualizar()
+        time.sleep(0.002)
+    tempos.sort()
+    assert tempos[int(len(tempos) * 0.99)] < 0.005
+
+
+def test_retrato_congela_no_fim(novo_jogo, fonte_falsa):
+    j = novo_jogo(fonte_tempo=fonte_falsa)
+    j.iniciar()
+    fonte_falsa.avancar(3)
+    j.atualizar()
+    a = j.retrato()
+    time.sleep(0.5)
+    fonte_falsa.avancar(5)
+    b = j.retrato()
+    campos = lambda r: (r.estado, r.pontos, r.perdidos, r.entregues, r.tempo_restante)  # noqa: E731
+    assert campos(a) == campos(b)
+    assert a.estado in (EstadoPartida.VITORIA, EstadoPartida.DERROTA)
+
+
+def test_retrato_sem_repetidos(novo_jogo, monkeypatch):
+    j = novo_jogo(config_rapida(n_cozinheiros=1))
+    pedido = j._fila.colocar(lambda: Pedido(42, receitas()[0], 0.0), 0.1)
+    falso = PedidoView(pedido.id, "Salada", EstadoPedido.EM_PREPARO, 0.5, 1, None)
+    monkeypatch.setattr(j._cozinheiros[0], "pedido_view", lambda agora: falso)
+    r = j.retrato()
+    assert [p.id for p in r.pedidos] == [42]
+    assert r.pedidos[0].estado is EstadoPedido.EM_PREPARO

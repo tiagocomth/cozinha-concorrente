@@ -16,6 +16,7 @@ from cozinha.modelo.fila import FilaDePedidos
 from cozinha.modelo.partida import Partida
 from cozinha.modelo.pontuacao import Pontuacao
 from cozinha.modelo.relogio import Relogio
+from cozinha.modelo.retrato import Retrato
 from cozinha.modelo.tipos import EstadoPartida
 from cozinha.threads.cozinheiro import Cozinheiro
 from cozinha.threads.gerador import GeradorDePedidos
@@ -42,6 +43,7 @@ class Jogo:
         self._lock = threading.Lock()          # protege as flags e o selecionado
         self._iniciado = False
         self._encerrado = False
+        self._selecionado: int | None = None
 
     def _threads(self) -> list[threading.Thread]:
         return [self._gerador, *self._cozinheiros]
@@ -70,6 +72,37 @@ class Jogo:
         self._partida.verificar_fim()
         if self._partida.terminou:
             self._sinalizar_parada()
+
+    def retrato(self) -> Retrato:
+        """Cópia imutável do jogo (RC06). Cada parte copiada sob o próprio lock, uma de cada vez.
+
+        Pode ficar desalinhado por milissegundos (um pedido na fila e no cozinheiro ao
+        mesmo tempo): o do cozinheiro vence e o resto some no quadro seguinte.
+        """
+        agora = self._relogio.agora()
+        pontos, entregues, perdidos = self._pontuacao.valores()
+        na_fila = self._fila.views(agora)
+        em_preparo = [v for c in self._cozinheiros if (v := c.pedido_view(agora))]
+        pedidos = {v.id: v for v in na_fila} | {v.id: v for v in em_preparo}
+        estacoes, grupos = self._cozinha.views()
+        with self._lock:
+            selecionado = self._selecionado
+        return Retrato(
+            estado=self._partida.estado,
+            tempo_restante=self._partida.tempo_restante(),
+            pontos=pontos,
+            meta=self._config.meta_pontos,
+            meta_batida=self._partida.meta_batida,
+            perdidos=perdidos,
+            limite_perdidos=self._config.limite_perdidos,
+            entregues=entregues,
+            tamanho_max_fila=self._fila.tamanho_max,
+            pedidos=tuple(pedidos[i] for i in sorted(pedidos)),
+            cozinheiros=tuple(c.view() for c in self._cozinheiros),
+            estacoes=estacoes,
+            grupos=grupos,
+            selecionado=selecionado,
+        )
 
     def pausar(self) -> None:
         self._partida.pausar()                 # a Partida já pausa o relógio
