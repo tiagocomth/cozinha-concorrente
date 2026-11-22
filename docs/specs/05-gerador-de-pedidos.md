@@ -1,6 +1,6 @@
 # 05 — Gerador de pedidos
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RF06, RF07, RF10, RC01
 **Depende de:** 00, 03, 06 (Relogio)
 **Arquivo:** `cozinha/threads/gerador.py`
@@ -61,9 +61,9 @@ Linear do inicial ao mínimo ao longo da partida. **(Proposta:** trocar por degr
 
 ## Critérios de aceite (pytest)
 
-- [ ] `intervalo(0) == intervalo_inicial`, `intervalo(duracao) == intervalo_minimo`, e é decrescente.
-- [ ] Com semente fixa, a sequência de receitas é sempre a mesma.
-- [ ] Com intervalo pequeno e ninguém consumindo, a fila enche até `tamanho_max`, o gerador espera, e nenhum pedido criado fica fora da fila.
-- [ ] Ids sobem de 1 em 1, sem repetir e sem pular.
-- [ ] Pausado por 1 s com intervalo de 0,05 s: nenhum pedido novo na fila durante a pausa.
-- [ ] `parar.set()` + `join(timeout=1)` termina a thread mesmo com a fila cheia.
+- [x] `intervalo(0) == intervalo_inicial`, `intervalo(duracao) == intervalo_minimo`, e é decrescente.
+- [x] Com semente fixa, a sequência de receitas é sempre a mesma.
+- [x] Com intervalo pequeno e ninguém consumindo, a fila enche até `tamanho_max`, o gerador espera, e nenhum pedido criado fica fora da fila.
+- [x] Ids sobem de 1 em 1, sem repetir e sem pular.
+- [x] Pausado por 1 s com intervalo de 0,05 s: nenhum pedido novo na fila durante a pausa.
+- [x] `parar.set()` + `join(timeout=1)` termina a thread mesmo com a fila cheia.
