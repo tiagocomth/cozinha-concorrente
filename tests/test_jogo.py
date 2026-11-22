@@ -236,3 +236,43 @@ def test_pausar_e_retomar(novo_jogo):
     assert a.tempo_restante == b.tempo_restante
     j.retomar()
     assert j.retrato().estado is EstadoPartida.RODANDO
+
+
+# ---------- Task 6 ----------
+
+def test_encerrar_antes_de_iniciar():
+    assert Jogo(config_rapida()).encerrar() == []
+
+
+def test_encerrar_pausado(novo_jogo):
+    j = novo_jogo()
+    j.iniciar()
+    j.pausar()
+    inicio = time.monotonic()
+    assert j.encerrar() == []
+    assert time.monotonic() - inicio < 1
+    assert j.encerrar() == []
+
+
+def test_encerrar_informa_presas(novo_jogo):
+    j = novo_jogo()
+    presa = threading.Thread(target=time.sleep, args=(3,), daemon=True, name="presa")
+    presa.erro = None
+    presa.start()
+    j._cozinheiros.append(presa)
+    assert j.encerrar(timeout=0.2) == ["presa"]
+    j._cozinheiros.remove(presa)               # para o finalizador do fixture
+
+
+def test_partida_completa(novo_jogo):
+    j = novo_jogo()
+    j.iniciar()
+    fim = time.monotonic() + 6
+    while not j._partida.terminou:
+        assert time.monotonic() < fim, "a partida não terminou sozinha"
+        j.atualizar()
+        time.sleep(0.01)
+    r = j.retrato()
+    assert r.estado in (EstadoPartida.VITORIA, EstadoPartida.DERROTA)
+    assert r.entregues + r.perdidos > 0
+    assert j.encerrar(timeout=2) == []
