@@ -50,13 +50,17 @@ class Cozinheiro(threading.Thread):
         try:
             self._loop()
         except BaseException as exc:
+            self.erro = exc                    # primeiro: nada abaixo pode esconder o erro
+            log.exception("%s morreu com uma exceção", self.name)
             # As estações já foram soltas pelos finally de _fazer_etapa / ocupar_todas.
             with self._lock:
                 pedido = self._pedido
             if pedido is not None and pedido.estado is EstadoPedido.EM_PREPARO:
-                self._pontuacao.registrar_perda(pedido)
-            self.erro = exc
-            log.exception("%s morreu com uma exceção", self.name)
+                try:
+                    self._pontuacao.registrar_perda(pedido)
+                except Exception:
+                    log.exception("%s não conseguiu registrar a perda do pedido %s",
+                                  self.name, pedido.id)
         finally:
             self._mudar(estado=LIVRE, segurando=(), esperando=None)
 

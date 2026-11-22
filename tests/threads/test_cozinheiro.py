@@ -377,3 +377,22 @@ def test_estresse(montar):
         assert c.erro is None
     assert all(finalizado(p) for p in pedidos)
     assert m.ocupadas() == {}
+
+
+def test_erro_preenchido_mesmo_se_registrar_perda_falhar(montar, monkeypatch):
+    m = montar()
+
+    def falhar_entrega(pedido, agora):
+        raise ValueError("entrega falhou")
+
+    def falhar_perda(pedido):
+        raise ValueError("perda também falhou")
+
+    monkeypatch.setattr(m.pontuacao, "registrar_entrega", falhar_entrega)
+    monkeypatch.setattr(m.pontuacao, "registrar_perda", falhar_perda)
+    m.pedir(salada())
+    c = m.cozinheiro()
+    c.join(timeout=1)
+    assert not c.is_alive()
+    assert isinstance(c.erro, ValueError) and str(c.erro) == "entrega falhou"
+    assert m.ocupadas() == {}
