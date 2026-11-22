@@ -1,6 +1,6 @@
 # 08 — Interface (Pygame)
 
-**Status:** feita, com dois critérios pendentes de conferência numa janela real
+**Status:** feita
 **Cobre:** RF01, RF02, RF05, RF08, RF17, RF18, RC06, RNF02, RNF05, RNF06
 **Depende de:** 00 (Retrato), 07 (Jogo)
 **Arquivos:** `cozinha/ui/`, `cozinha/__main__.py`, README
@@ -122,8 +122,8 @@ VITÓRIA ou DERROTA, pontos/meta, pratos entregues, clientes perdidos (valores c
 - [x] Toda estação ocupada mostra quem está nela; todo cozinheiro esperando aparece na fila de espera da estação certa.
 - [x] O balcão aparece como uma estação com N vagas.
 - [x] Barra de paciência muda de cor e o cartão some quando o cliente vai embora.
-- [ ] Fechar a janela no meio da partida encerra o processo em menos de 2 s. *(pendente: conferir numa janela real; sem janela, o QUIT encerra em 0,13 s)*
-- [ ] Tirar o foco da janela pausa a partida. *(pendente: o evento `WINDOWFOCUSLOST` está testado; falta conferir o sistema operacional mandando o evento)*
+- [x] Fechar a janela no meio da partida encerra o processo em menos de 2 s. *(conferido numa janela real)*
+- [x] Tirar o foco da janela pausa a partida. *(conferido numa janela real)*
 - [x] **Desempenho (automático, `SDL_VIDEODRIVER=dummy`):** desenhar 600 quadros de um retrato com 4 cozinheiros e 6 pedidos leva menos de 10 s (≥ 60 FPS). O FPS real aparece no modo debug (spec 09).
 - [x] Teste automático: desenhar `Retrato.exemplo()` não levanta exceção.
 - [x] README tem "Como rodar" e "Como jogar" atualizados.

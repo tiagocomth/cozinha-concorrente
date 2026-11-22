@@ -1,6 +1,6 @@
 # 09 — Controles e modo debug
 
-**Status:** feita (controles validados no plano da equipe), com a demo pendente de conferência numa janela real
+**Status:** feita (controles validados no plano da equipe)
 **Cobre:** RF15, RF16, RF19
 **Depende de:** 07 (Jogo), 08 (Interface)
 **Arquivo:** `cozinha/ui/entrada.py`
@@ -87,4 +87,4 @@ O `Jogo.encerrar` funciona mesmo travado: quem espera estação sai pelo `cancel
 - [x] `Esc` na partida pausa e pergunta; `Esc` de novo retoma; `Esc` + `Enter` volta ao início com as threads encerradas.
 - [x] `Esc` com a partida já pausada por `P`: cancelar a saída mantém pausado.
 - [x] `D` mostra e esconde o debug sem afetar o jogo.
-- [ ] `--demo-deadlock`: em até 30 s, os dois cozinheiros ficam travados (cada um segurando o que o outro espera) e continuam assim por mais 30 s; fechar a janela encerra o processo em menos de 2 s. *(pendente: sem janela, trava em cerca de 10 s e o teste confere mais 2 s travado; falta a janela real por 30 s e o tempo de fechar pelo botão)*
+- [x] `--demo-deadlock`: em até 30 s, os dois cozinheiros ficam travados (cada um segurando o que o outro espera) e continuam assim por mais 30 s; fechar a janela encerra o processo em menos de 2 s. *(conferido numa janela real)*
