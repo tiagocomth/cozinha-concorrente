@@ -1,6 +1,6 @@
 # 07 — Jogo (integração)
 
-**Status:** proposta
+**Status:** feita
 **Cobre:** RC01, RC06, RC07, RF09 (expiração na fila), RF15 (ordem do jogador), integração geral
 **Depende de:** 00–06
 **Arquivo:** `cozinha/jogo.py`
@@ -82,14 +82,14 @@ Todos chamados da thread da interface, com locks curtos. Não há fila de mensag
 
 ## Critérios de aceite (pytest)
 
-- [ ] Construir não inicia nenhuma thread (`threading.active_count()` não muda).
-- [ ] `iniciar` sobe `n_cozinheiros + 1` threads com nomes `cozinheiro-N` e `gerador`.
-- [ ] **Partida completa acelerada:** config com partida de 3 s e receitas de teste roda até VITORIA ou DERROTA sozinha (chamando `atualizar` em loop no teste) e `encerrar(timeout=2)` devolve `[]`.
-- [ ] Depois do fim, `retrato()` mostra placar e tempo iguais em chamadas separadas por 0,5 s.
-- [ ] `retrato()` funciona antes de iniciar, durante e depois de terminar.
-- [ ] `retrato()` chamado em loop por 1 s com o jogo rodando nunca levanta exceção, nunca tem id repetido em `pedidos`, e o p99 do tempo de cada chamada fica abaixo de 5 ms.
-- [ ] Pedido vencido na fila some do retrato e aumenta `perdidos`.
-- [ ] `selecionar(2)` + `atribuir(7)`: o pedido 7 aparece com `reservado_para=2` e é o C2 que o prepara.
-- [ ] `atribuir` sem cozinheiro selecionado não faz nada.
-- [ ] `encerrar()` com o jogo pausado devolve `[]` em menos de 1 s; chamar de novo também devolve `[]`.
-- [ ] Thread com `erro` faz o próximo `atualizar` levantar `RuntimeError`.
+- [x] Construir não inicia nenhuma thread (`threading.active_count()` não muda).
+- [x] `iniciar` sobe `n_cozinheiros + 1` threads com nomes `cozinheiro-N` e `gerador`.
+- [x] **Partida completa acelerada:** config com partida de 3 s e receitas de teste roda até VITORIA ou DERROTA sozinha (chamando `atualizar` em loop no teste) e `encerrar(timeout=2)` devolve `[]`.
+- [x] Depois do fim, `retrato()` mostra placar e tempo iguais em chamadas separadas por 0,5 s.
+- [x] `retrato()` funciona antes de iniciar, durante e depois de terminar.
+- [x] `retrato()` chamado em loop por 1 s com o jogo rodando nunca levanta exceção, nunca tem id repetido em `pedidos`, e o p99 do tempo de cada chamada fica abaixo de 5 ms.
+- [x] Pedido vencido na fila some do retrato e aumenta `perdidos`.
+- [x] `selecionar(2)` + `atribuir(7)`: o pedido 7 aparece com `reservado_para=2` e é o C2 que o prepara.
+- [x] `atribuir` sem cozinheiro selecionado não faz nada.
+- [x] `encerrar()` com o jogo pausado devolve `[]` em menos de 1 s; chamar de novo também devolve `[]`.
+- [x] Thread com `erro` faz o próximo `atualizar` levantar `RuntimeError`.
