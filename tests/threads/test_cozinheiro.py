@@ -1,0 +1,152 @@
+from __future__ import annotations
+
+import itertools
+import threading
+import time
+from dataclasses import replace
+
+import pytest
+
+from cozinha.config import Config
+from cozinha.modelo.estacoes import Cozinha
+from cozinha.modelo.fila import FilaDePedidos
+from cozinha.modelo.pedido import Pedido
+from cozinha.modelo.pontuacao import Pontuacao
+from cozinha.modelo.receita import Etapa, Receita
+from cozinha.modelo.relogio import Relogio
+from cozinha.modelo.tipos import EstadoCozinheiro, EstadoPedido, TipoEstacao
+from cozinha.threads.cozinheiro import Cozinheiro
+
+TABUA, PIA, FOGAO, BALCAO = TipoEstacao
+NUNCA = lambda: False  # noqa: E731
+
+
+def salada(dur: float = 0.01, paciencia: float = 60, entrega: float = 0.01) -> Receita:
+    return Receita("Salada", (Etapa("cortar", (TABUA,), dur),
+                              Etapa("entregar", (BALCAO,), entrega)), 20, paciencia)
+
+
+def sopa(dur: float = 0.01, paciencia: float = 60) -> Receita:
+    return Receita("Sopa", (Etapa("cortar", (TABUA,), dur),
+                            Etapa("cozinhar", (FOGAO,), dur),
+                            Etapa("empratar", (FOGAO, BALCAO), dur)), 35, paciencia)
+
+
+def esperar(condicao, prazo: float = 2.0) -> None:
+    fim = time.monotonic() + prazo
+    while not condicao():
+        assert time.monotonic() < fim, "condição não ficou verdadeira a tempo"
+        time.sleep(0.002)
+
+
+class Montagem:
+    def __init__(self, **config) -> None:
+        self.config = replace(Config(), tick=0.005, tempo_retirada=0, **config)
+        self.relogio = Relogio()
+        self.relogio.iniciar()
+        self.pontuacao = Pontuacao(self.config)
+        self.cozinha = Cozinha(self.config)
+        self.fila = FilaDePedidos(self.config.tamanho_max_fila)
+        self.parar = threading.Event()
+        self.cozinheiros: list[Cozinheiro] = []
+        self._ids = itertools.count(1)
+
+    def pedir(self, receita: Receita) -> Pedido:
+        return self.fila.colocar(lambda: Pedido(next(self._ids), receita, self.relogio.agora()), 0.1)
+
+    def cozinheiro(self, cid: int = 1, iniciar: bool = True) -> Cozinheiro:
+        c = Cozinheiro(cid, self.fila, self.cozinha, self.pontuacao, self.relogio,
+                       self.config, self.parar)
+        self.cozinheiros.append(c)
+        if iniciar:
+            c.start()
+        return c
+
+    def ocupadas(self) -> dict[tuple[TipoEstacao, int], int]:
+        return {(e.tipo, e.indice): e.ocupada_por
+                for e in self.cozinha.views()[0] if e.ocupada_por is not None}
+
+    def encerrar(self) -> None:
+        self.parar.set()
+        self.relogio.congelar()
+        for c in self.cozinheiros:
+            if c.is_alive() or c.ident is not None:
+                c.join(timeout=1)
+                assert not c.is_alive()
+
+
+@pytest.fixture
+def montar():
+    criadas: list[Montagem] = []
+
+    def fabrica(**config) -> Montagem:
+        m = Montagem(**config)
+        criadas.append(m)
+        return m
+
+    yield fabrica
+    for m in criadas:
+        m.encerrar()
+
+
+def finalizado(p: Pedido) -> bool:
+    return p.estado in (EstadoPedido.ENTREGUE, EstadoPedido.PERDIDO)
+
+
+# ---------- Task 3 ----------
+
+def test_nome_e_daemon(montar):
+    c = montar().cozinheiro(iniciar=False)
+    assert c.name == "cozinheiro-1"
+    assert c.daemon is True
+    assert c.erro is None
+    assert c.view().estado is EstadoCozinheiro.LIVRE
+
+
+def test_salada_entregue(montar):
+    m = montar()
+    p = m.pedir(salada())
+    c = m.cozinheiro()
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+    assert m.pontuacao.valores()[0] > 0
+    esperar(lambda: c.view().estado is EstadoCozinheiro.LIVRE)
+    assert c.erro is None
+
+
+def test_solta_tudo(montar):
+    m = montar()
+    p = m.pedir(sopa())
+    m.cozinheiro()
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+    esperar(lambda: m.ocupadas() == {})
+
+
+def test_pega_o_reservado(montar):
+    m = montar()
+    p1, p2 = m.pedir(salada()), m.pedir(salada(dur=0.3))
+    m.fila.reservar(p2.id, 1)
+    m.cozinheiro()
+    esperar(lambda: p2.estado is not EstadoPedido.AGUARDANDO)
+    assert p2.cozinheiro_id == 1
+    assert p1.estado is EstadoPedido.AGUARDANDO      # o reservado saiu primeiro
+    esperar(lambda: p1.estado is EstadoPedido.ENTREGUE)
+
+
+def test_livre_nao_retira_na_pausa(montar):
+    m = montar()
+    m.relogio.pausar()
+    p = m.pedir(salada())
+    m.cozinheiro()
+    time.sleep(0.2)
+    assert len(m.fila) == 1
+    m.relogio.retomar()
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE)
+
+
+def test_parar_livre(montar):
+    m = montar()
+    c = m.cozinheiro()
+    time.sleep(0.05)
+    m.parar.set()
+    c.join(timeout=1)
+    assert not c.is_alive()
