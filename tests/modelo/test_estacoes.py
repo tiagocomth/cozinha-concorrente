@@ -134,6 +134,14 @@ def test_tipos_vazio():
     assert chamadas == []
 
 
+@pytest.mark.parametrize("ordem_fixa", [True, False])
+def test_tipos_repetidos(ordem_fixa):
+    coz = _cozinha(ordem_fixa=ordem_fixa)
+    with pytest.raises(ValueError, match="repetidos"):
+        coz.ocupar_todas(1, (FOGAO, FOGAO), NUNCA)
+    assert _ocupadas(coz) == {}
+
+
 def test_views_ordenadas():
     estacoes, grupos = Cozinha(Config()).views()
     assert [g.tipo for g in grupos] == list(TipoEstacao)
@@ -213,9 +221,22 @@ def test_liberar_parcial():
     coz = _cozinha()
     reservas = coz.ocupar_todas(1, (FOGAO, BALCAO), NUNCA)
     assert reservas == (Reserva(FOGAO, 0), Reserva(BALCAO, 0))
-    coz.liberar([Reserva(FOGAO, 0)])
+    coz.liberar([reservas[0]])
     assert _ocupadas(coz) == {(BALCAO, 0): 1}
-    coz.liberar([Reserva(BALCAO, 0)])
+    coz.liberar([reservas[1]])
+    assert _ocupadas(coz) == {}
+
+
+def test_reserva_antiga_nao_libera_ocupacao_nova():
+    coz = _cozinha()
+    antiga = coz.ocupar_todas(1, (FOGAO,), NUNCA)
+    coz.liberar(antiga)
+    atuais = coz.ocupar_todas(2, (FOGAO, BALCAO), NUNCA)
+    assert antiga[0] == atuais[0]
+    with pytest.raises(ValueError):
+        coz.liberar((*antiga, atuais[1]))
+    assert _ocupadas(coz) == {(FOGAO, 0): 2, (BALCAO, 0): 2}
+    coz.liberar(atuais)
     assert _ocupadas(coz) == {}
 
 
@@ -277,14 +298,35 @@ def test_sem_deadlock():
 def test_deadlock_demonstravel():
     coz = Cozinha(Config.demo_deadlock())
     parar = threading.Event()
-    threads = _disputar(coz, parar, voltas=500)
+    primeira_aquisicao = threading.Barrier(2, timeout=2)
+    resultados = {}
+
+    def sincronizar(segurando, esperando):
+        if len(segurando) == 1 and esperando is None:
+            primeira_aquisicao.wait()
+
+    def ocupar(dono):
+        reservas = coz.ocupar_todas(
+            dono, (FOGAO, BALCAO), parar.is_set, sincronizar)
+        resultados[dono] = reservas
+        if reservas is not None:
+            coz.liberar(reservas)
+
+    threads = [threading.Thread(target=ocupar, args=(dono,), daemon=True)
+               for dono in (1, 2)]
     for t in threads:
-        t.join(timeout=5 / len(threads))
-    assert any(t.is_alive() for t in threads), "deveria ter travado sem a ordem fixa"
-    parar.set()
-    for t in threads:
-        t.join(timeout=1)
-        assert not t.is_alive()
+        t.start()
+    try:
+        _esperar(lambda: _grupo(coz, BALCAO).fila_espera == (1,)
+                 and _grupo(coz, FOGAO).fila_espera == (2,))
+        assert _ocupadas(coz) == {(FOGAO, 0): 1, (BALCAO, 0): 2}
+    finally:
+        parar.set()
+        for t in threads:
+            t.join(timeout=2)
+            assert not t.is_alive()
+    assert resultados.keys() == {1, 2}
+    assert None in resultados.values()
     assert _ocupadas(coz) == {}
 
 
