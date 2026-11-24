@@ -164,3 +164,28 @@ def test_excecao_preenche_erro(montar, monkeypatch):
     m.gerador.join(timeout=1)
     assert not m.gerador.is_alive()
     assert isinstance(m.gerador.erro, RuntimeError)
+
+
+def test_pesos_progressivos():
+    from cozinha.modelo.receita import RECEITAS
+    from cozinha.threads.gerador import pesos_receitas
+    inicio, fim = pesos_receitas(RECEITAS, 0.0), pesos_receitas(RECEITAS, 1.0)
+    assert inicio[0] == max(inicio)            # Salada (2 etapas) no começo
+    assert fim[2] == max(fim)                  # Prato do dia (4 etapas) no fim
+    assert sum(inicio) > 0 and sum(fim) > 0
+
+
+def test_sorteio_progressivo():
+    g = _gerador(semente=7, receitas_progressivas=True, duracao_partida=100)
+    comeco = [g.sortear(0).nome for _ in range(300)]
+    fim = [g.sortear(100).nome for _ in range(300)]
+    assert comeco.count("Salada") > comeco.count("Prato do dia")
+    assert fim.count("Prato do dia") > fim.count("Salada")
+
+
+def test_sorteio_sem_progressivo_igual():
+    import random
+    from cozinha.modelo.receita import RECEITAS
+    g = _gerador(semente=3)
+    rng = random.Random(3)
+    assert [g.sortear().nome for _ in range(20)] == [rng.choice(RECEITAS).nome for _ in range(20)]

@@ -143,3 +143,69 @@ def test_comanda_mostra_etapas(tela):
     for icone in icones:
         assert rect.contains(icone)
         assert tela.get_at(icone.center)[:3] != layout.PAPEL
+
+
+def test_fonte_cai_para_padrao(tela, monkeypatch):
+    def falhar(*a, **k):
+        raise OSError("sem fonte")
+    monkeypatch.setattr(pygame.font, "SysFont", falhar)
+    f = layout.fontes()
+    assert f.media.size("abc")[0] > 0
+
+
+def _foto(tela, caixa):
+    return [tela.get_at((x, y))[:3] for x in range(caixa.left, caixa.right, 2)
+            for y in range(caixa.top, caixa.bottom, 2)]
+
+
+def test_icones_etapa_distintos(tela):
+    caixa = pygame.Rect(10, 10, 24, 24)
+    fotos = []
+    for tipo in TipoEstacao:
+        tela.fill((0, 0, 0))
+        desenho.desenhar_icone_etapa(tela, tipo, caixa)
+        fotos.append(_foto(tela, caixa))
+    for a, b in itertools.combinations(fotos, 2):
+        assert a != b
+
+
+def test_vapor_anima(tela):
+    rect = pygame.Rect(300, 300, *layout.ESTACAO_TAMANHO)
+    area = rect.inflate(0, 40).move(0, -20)
+    tela.fill((0, 0, 0))
+    desenho.desenhar_fogao(tela, rect, aceso=True)
+    desenho.desenhar_vapor(tela, rect, 0.1)
+    a = _foto(tela, area)
+    tela.fill((0, 0, 0))
+    desenho.desenhar_fogao(tela, rect, aceso=True)
+    desenho.desenhar_vapor(tela, rect, 0.6)
+    assert _foto(tela, area) != a
+
+
+def test_chef_balanca(tela):
+    c = Retrato.exemplo().cozinheiros[1]
+    caixa = pygame.Rect(170, 150, 60, 80)
+    fotos = []
+    for t in (0.0, 0.15):
+        tela.fill((0, 0, 0))
+        desenho.desenhar_chef(tela, c, (200, 200), layout.fontes(), andando=True, t=t)
+        fotos.append(_foto(tela, caixa))
+    assert fotos[0] != fotos[1]
+
+
+def test_desenhar_com_efeitos(tela):
+    from cozinha.ui.efeitos import Efeitos
+    r = Retrato.exemplo()
+    e = Efeitos()
+    e.observar(r, replace(r, pontos=r.pontos + 35, entregues=r.entregues + 1),
+               layout.mapa_estacoes(r.grupos))
+    desenho.desenhar_retrato(tela, r, _descanso(r), layout.fontes(), efeitos=e.ativos,
+                             pulso=e.pulso_pontos, andando=frozenset({2}), t=0.3)
+
+
+def test_sem_fonte_do_sistema_usa_padrao_no_tamanho_certo(tela, monkeypatch):
+    """SysFont não levanta quando não acha a família: devolve a padrão já reduzida."""
+    monkeypatch.setattr(pygame.font, "match_font", lambda *a, **k: None)
+    f = layout.fontes()
+    esperado = pygame.font.Font(None, layout.FONTE_TAMANHOS[1]).size("Pontos 300")
+    assert f.media.size("Pontos 300") == esperado

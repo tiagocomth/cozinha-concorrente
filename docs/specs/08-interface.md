@@ -65,6 +65,8 @@ def rodar(config: Config) -> None:
 
 > **Atualização (single player, 2026-11-24):** a tela da partida virou uma cozinha vista de cima — piso de ladrilhos, bancadas na parede de cima (tábuas, pia, fogões), balcão na parede direita, quadro de pedidos na esquerda, comandas com a trilha de etapas no topo, chefs com chapéu e o avatar do jogador. Detalhes em `docs/superpowers/specs/2026-11-24-single-player-design.md`. O desenho abaixo é o da primeira versão.
 
+> **Polimento (2026-11-24):** nível de dificuldade na tela de início (←/→), contagem "3, 2, 1, Já!" antes da partida (as threads só sobem no "Já!"), fade entre telas, "+N" e "X" como efeitos, ícones desenhados por etapa, vapor no fogão aceso, chefs balançando ao andar e HUD com ícones. Ver `docs/superpowers/specs/2026-11-24-polimento-e-dificuldade-design.md`.
+
 ### Início
 
 Nome do jogo, uma frase do objetivo, os controles (spec 09) e "Enter para começar · Esc para sair". Enter → cria `Jogo(config)`, `iniciar()`, vai para a TelaJogo.

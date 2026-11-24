@@ -50,6 +50,7 @@ Linear do inicial ao mínimo ao longo da partida. **(Proposta:** trocar por degr
 ### Detalhes
 
 - **O pedido nasce dentro do `colocar`** (spec 03), quando já existe vaga. Com a fila cheia, o cliente "ainda não chegou": não há pedido perdendo paciência escondido no gerador.
+- **Pratos progressivos (`config.receitas_progressivas`, single player):** `sortear(decorrido)` pesa cada receita por `(1 - f) / etapas + f × etapas`, com `f` a fração da partida: no começo saem mais pratos curtos, no fim mais longos.
 - **Sorteio:** `random.Random(config.semente)` próprio da thread (não o global), para testes reproduzíveis. Peso igual entre receitas **(proposta:** pesar para receitas simples no começo).
 - **Ids:** contador próprio, começando em 1, incrementado só quando o `colocar` consegue. Só esta thread cria pedidos, então não precisa de lock.
 - A paciência de quem está na fila é vigiada pelo `Jogo.atualizar` (spec 07), não por esta thread.
