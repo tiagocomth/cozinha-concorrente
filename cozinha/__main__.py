@@ -16,7 +16,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.demo_deadlock:
         config = Config.demo_deadlock()
     else:
-        config = Config()
+        config = Config.single_player()        # você é o cozinheiro 1
         config.validar_para_jogo()
     logging.basicConfig(level=logging.WARNING)
     from cozinha.ui import app                      # só aqui o pygame entra

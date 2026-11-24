@@ -35,6 +35,7 @@ class Config:
     fps: int = 60
     semente: int | None = None             # aleatoriedade reproduzível nos testes
     jogador: bool = False                  # True: o cozinheiro 1 é controlado pelo jogador
+    atraso_automaticos: float = 0.0        # segundos que um pedido fica só para o jogador
 
     def __post_init__(self) -> None:
         if not isinstance(self.quantidade, MappingProxyType):
@@ -43,6 +44,8 @@ class Config:
         for nome in positivos:
             if getattr(self, nome) <= 0:
                 raise ValueError(f"{nome} precisa ser > 0")
+        if self.atraso_automaticos < 0:
+            raise ValueError("atraso_automaticos precisa ser >= 0")
         if self.tempo_retirada < 0:
             raise ValueError("tempo_retirada precisa ser >= 0")
         if self.intervalo_minimo > self.intervalo_inicial:
@@ -67,9 +70,11 @@ class Config:
     def single_player(cls) -> Config:
         """O jogo de verdade: você é o cozinheiro 1, os outros são automáticos.
 
-        Um humano andando é mais lento que uma thread, por isso a meta é menor.
+        Um humano andando é mais lento que uma thread: a meta é menor, e um pedido novo
+        fica alguns segundos só para o jogador antes de um automático poder pegá-lo
+        (sem isso, as threads levam cada pedido no instante em que ele chega).
         """
-        return replace(cls(), jogador=True, meta_pontos=200)
+        return replace(cls(), jogador=True, meta_pontos=200, atraso_automaticos=6.0)
 
     @classmethod
     def demo_deadlock(cls) -> Config:

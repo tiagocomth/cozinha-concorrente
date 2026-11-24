@@ -26,10 +26,20 @@ ENTER = (pygame.K_RETURN, pygame.K_KP_ENTER)
 FIM = (EstadoPartida.VITORIA, EstadoPartida.DERROTA)
 
 CONTROLES = (
-    "1-4  seleciona o cozinheiro",
-    "clique num pedido (ou setas + Enter)  manda o selecionado fazer",
-    "P  pausa · D  modo debug · Esc  sair da partida",
+    ("WASD", "anda pela cozinha"),
+    ("E", "pega pedido no quadro / usa a estação"),
+    ("Q", "sai da fila da estação / descarta o pedido"),
+    ("P", "pausa"),
+    ("D", "modo debug (as threads por dentro)"),
+    ("Esc", "sai da partida"),
 )
+FRACOES_ESTRELA = (0.5, 0.8, 1.0)
+
+
+def estrelas(pontos: int, meta: int) -> int:
+    """0 a 3 estrelas pela fração da meta: 50 %, 80 % e a meta inteira."""
+    fracao = pontos / meta if meta else 1.0
+    return sum(1 for limite in FRACOES_ESTRELA if fracao >= limite)
 
 
 class Tela(Protocol):
@@ -64,17 +74,18 @@ class TelaInicio:
 
     def desenhar(self, sup: pygame.Surface) -> None:
         f = self._fontes
-        sup.fill(layout.FUNDO)
-        desenho._texto(sup, f.grande, "Cozinha Concorrente", _centro(160), centro=True)
-        desenho._texto(sup, f.media,
-                       f"Faça {self.config.meta_pontos} pontos antes do tempo acabar, "
-                       f"sem perder {self.config.limite_perdidos} clientes.",
-                       _centro(230), centro=True)
-        for i, linha in enumerate(CONTROLES):
-            desenho._texto(sup, f.media, linha, _centro(320 + i * 36), layout.TEXTO_FRACO,
-                           centro=True)
-        desenho._texto(sup, f.media, "Enter para começar · Esc para sair", _centro(520),
-                       layout.DESTAQUE, centro=True)
+        desenho.desenhar_capa(sup, f, "Cozinha Concorrente")
+        c = self.config
+        objetivo = (f"Faça {c.meta_pontos} pontos em {int(c.duracao_partida) // 60} minutos "
+                    f"sem perder {c.limite_perdidos} clientes.")
+        desenho._texto(sup, f.media, objetivo, _centro(250), layout.TINTA, centro=True)
+        if c.jogador:
+            desenho._texto(sup, f.media, "Você é o cozinheiro 1. Os outros disputam as mesmas "
+                           "estações com você.", _centro(282), layout.TINTA_FRACA, centro=True)
+        for i, (tecla, texto) in enumerate(CONTROLES):
+            desenho.desenhar_tecla_legenda(sup, f, tecla, texto, (470, 330 + i * 40))
+        desenho._texto(sup, f.media, "Enter para começar · Esc para sair", _centro(600),
+                       layout.TINTA, centro=True)
 
     def fechar(self) -> None:
         pass
@@ -233,16 +244,16 @@ class TelaResultado:
 
     def desenhar(self, sup: pygame.Surface) -> None:
         f, r = self._fontes, self.retrato
-        sup.fill(layout.FUNDO)
         vitoria = r.estado is EstadoPartida.VITORIA
-        desenho._texto(sup, f.grande, "VITÓRIA" if vitoria else "DERROTA", _centro(170),
-                       layout.META if vitoria else layout.ALERTA, centro=True)
+        desenho.desenhar_capa(sup, f, "VITÓRIA!" if vitoria else "DERROTA",
+                              layout.META if vitoria else layout.ALERTA)
+        desenho.desenhar_estrelas(sup, estrelas(r.pontos, r.meta), _centro(260))
         linhas = (f"Pontos: {r.pontos} / {r.meta}", f"Pratos entregues: {r.entregues}",
                   f"Clientes perdidos: {r.perdidos} / {r.limite_perdidos}")
         for i, linha in enumerate(linhas):
-            desenho._texto(sup, f.media, linha, _centro(260 + i * 40), centro=True)
+            desenho._texto(sup, f.media, linha, _centro(340 + i * 36), layout.TINTA, centro=True)
         desenho._texto(sup, f.media, "Enter para jogar de novo · Esc para sair do jogo",
-                       _centro(480), layout.DESTAQUE, centro=True)
+                       _centro(560), layout.TINTA, centro=True)
 
     def fechar(self) -> None:
         pass

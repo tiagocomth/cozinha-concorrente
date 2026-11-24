@@ -51,6 +51,8 @@ enquanto não parar:
 
 ### Regras
 
+- **Single player (`config.atraso_automaticos > 0`):** antes de `retirar`, o automático confere `fila.tem_pedido_livre(id, agora, atraso)`; um pedido novo fica esse tempo só para o jogador.
+
 - **Solta tudo no fim de cada etapa**, inclusive com exceção (`try/finally`). Nunca segura estação entre etapas.
 - **Entrega:** a etapa que usa o BALCÃO é a última (spec 00). Depois da `duracao`, o cozinheiro solta o fogão (se segurava) e o prato fica no balcão mais `config.tempo_retirada`. Só então o balcão é solto e a entrega registrada. É isso que faz o balcão de capacidade limitada encher (RF13).
 - **Expiração:** checada antes de cada etapa, durante a espera por estação (pelo `cancelar`) e a cada tick do trabalho. **Exceção: a etapa de entrega.** Quando o cozinheiro já conseguiu o balcão, o prato está saindo e não conta mais como perda. Com `config.expiracao=False` (demo), nada expira. Expirou → solta tudo e `pontuacao.registrar_perda(pedido)`.

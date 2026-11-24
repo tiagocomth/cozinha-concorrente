@@ -72,6 +72,9 @@ class Cozinheiro(threading.Thread):
             self._relogio.esperar_rodando(self._parar, tick)
             if self._parar.is_set():
                 break
+            if not self._tem_pedido_maduro():
+                self._parar.wait(tick)
+                continue
             pedido = self._fila.retirar(self.id, timeout=tick)
             if pedido is None:
                 self._parar.wait(tick)
@@ -83,6 +86,12 @@ class Cozinheiro(threading.Thread):
                 if not self._fazer_etapa(pedido, etapa):
                     break
             self._mudar(estado=LIVRE, pedido=None, etapa=None, progresso=0.0)
+
+    def _tem_pedido_maduro(self) -> bool:
+        """Single player: só pega um pedido que já está no quadro há `atraso_automaticos`
+        segundos, para o jogador ter a chance de pegá-lo antes."""
+        atraso = self._config.atraso_automaticos
+        return atraso <= 0 or self._fila.tem_pedido_livre(self.id, self._relogio.agora(), atraso)
 
     def _expirou(self, pedido: Pedido) -> bool:
         return self._config.expiracao and pedido.expirou(self._relogio.agora())

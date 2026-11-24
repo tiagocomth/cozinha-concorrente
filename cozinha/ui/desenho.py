@@ -434,3 +434,40 @@ def desenhar_confirmacao(sup: pygame.Surface, f: Fontes) -> None:
     _texto(sup, f.grande, "Sair da partida?", (caixa.centerx, caixa.y + 45), centro=True)
     _texto(sup, f.media, "Enter = sim · Esc = não", (caixa.centerx, caixa.y + 100),
            layout.TEXTO_FRACO, centro=True)
+
+
+# ---------- telas de início e resultado ----------
+
+def desenhar_capa(sup: pygame.Surface, f: Fontes, titulo: str, cor: Cor = layout.TINTA) -> None:
+    """Fundo de ladrilhos, um cartão de papel no meio, título e um chef desenhado."""
+    sup.fill(layout.FUNDO)
+    desenhar_piso(sup)
+    cartao = layout.CAPA_CARTAO
+    pygame.draw.rect(sup, layout.SOMBRA, cartao.move(6, 6), border_radius=16)
+    pygame.draw.rect(sup, layout.PAPEL, cartao, border_radius=16)
+    pygame.draw.rect(sup, layout.TINTA, cartao, 3, border_radius=16)
+    _texto(sup, f.grande, titulo, (cartao.centerx, cartao.top + 60), cor, centro=True)
+    chef = CozinheiroView(1, EstadoCozinheiro.LIVRE, None, None, 0.0, (), None, 0.0, 0.0)
+    for dx in (-260, 260):
+        desenhar_chef(sup, chef, (cartao.centerx + dx, cartao.top + 64), f)
+
+
+def desenhar_tecla_legenda(sup: pygame.Surface, f: Fontes, tecla: str, texto: str,
+                           pos: tuple[int, int]) -> None:
+    largura = max(34, f.media.size(tecla)[0] + 16)
+    caixa = pygame.Rect(pos[0], pos[1], largura, 30)
+    pygame.draw.rect(sup, layout.BALAO, caixa, border_radius=6)
+    pygame.draw.rect(sup, layout.TINTA, caixa, 2, border_radius=6)
+    _texto(sup, f.media, tecla, caixa.center, layout.TINTA, centro=True)
+    _texto(sup, f.media, texto, (pos[0] + 110, pos[1] + 6), layout.TINTA)
+
+
+def desenhar_estrelas(sup: pygame.Surface, n: int, centro: tuple[int, int]) -> None:
+    raio = layout.ESTRELA_RAIO
+    for i in range(3):
+        cx = centro[0] + (i - 1) * raio * 3
+        pontos = [(cx + raio * (1 if k % 2 == 0 else 0.45) * math.cos(math.pi / 2 + k * math.pi / 5),
+                   centro[1] - raio * (1 if k % 2 == 0 else 0.45) * math.sin(math.pi / 2 + k * math.pi / 5))
+                  for k in range(10)]
+        pygame.draw.polygon(sup, layout.BRILHO if i < n else layout.LIVRE, pontos)
+        pygame.draw.polygon(sup, layout.TINTA, pontos, 2)

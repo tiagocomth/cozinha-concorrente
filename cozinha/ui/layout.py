@@ -96,7 +96,7 @@ VAGA_TAMANHO = (44, 44)
 VAGA_ESPACO = 30
 QUADRO = pygame.Rect(PISO.left, 300, 70, 130)
 AREA_INTERACAO = 56           # faixa em frente a cada estação onde o E funciona
-FRENTE = 24                   # onde o cozinheiro fica para usar a estação
+FRENTE = 40                   # onde o cozinheiro fica para usar a estação
 ESPERA_INICIO = 70            # da estação ao primeiro da fila de espera
 ESPERA_DISTANCIA = 34
 ESPERA_BALCAO = 110            # do balcão ao primeiro da fila (à esquerda, longe de quem usa)
@@ -113,6 +113,8 @@ DESCANSO_Y = PISO.bottom - 40
 VELOCIDADE = 420.0            # cozinheiros automáticos deslizando (pixels/s)
 VELOCIDADE_JOGADOR = 260.0
 INICIO_JOGADOR: tuple[float, float] = (560.0, 520.0)
+CAPA_CARTAO = pygame.Rect(240, 90, 800, 560)
+ESTRELA_RAIO = 30
 AVISO_SEGUNDOS = 2.5          # quanto tempo uma mensagem fica na linha de dica
 
 # Debug e confirmação

@@ -258,3 +258,26 @@ def test_pedido_view_etapa_atual(m):
     x.fazer(TABUA)
     v = x.j.pedido_view(x.relogio.agora())
     assert v.etapa_atual == 1 and len(v.etapas) == 3
+
+
+def test_automatico_espera_o_atraso(m):
+    """No single player, o pedido fica um tempo no quadro só para o jogador."""
+    x = m(atraso_automaticos=0.4)
+    p = x.pedir(salada())
+    outro = Cozinheiro(2, x.fila, x.cozinha, x.pontuacao, x.relogio, x.config, x.parar)
+    x.outros.append(outro)
+    outro.start()
+    time.sleep(0.2)
+    assert p.estado is EstadoPedido.AGUARDANDO
+    esperar(lambda: p.estado is EstadoPedido.ENTREGUE, prazo=2)
+
+
+def test_jogador_pega_antes_do_atraso(m):
+    x = m(atraso_automaticos=5.0)
+    p = x.pedir(salada())
+    outro = Cozinheiro(2, x.fila, x.cozinha, x.pontuacao, x.relogio, x.config, x.parar)
+    x.outros.append(outro)
+    outro.start()
+    x.j.start()
+    x.j.comandar(PegarPedido())
+    esperar(lambda: x.j.view().pedido_id == p.id)

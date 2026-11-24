@@ -33,18 +33,22 @@ pytest -m demo                   # testes de demonstração, que travam de prop�
 
 ## Como jogar
 
-Os pedidos chegam cada vez mais rápido. Cada cozinheiro pega sozinho o pedido mais antigo, mas você pode dar ordens. Faça a meta de pontos antes do tempo acabar, sem perder clientes demais. Entregas rápidas valem bônus.
+Você é o **cozinheiro 1** (o de contorno amarelo, "VOCÊ"). Os outros cozinheiros são automáticos — cada um é uma thread — e disputam as mesmas estações com você: se o fogão está ocupado, você entra na fila dele e espera a vez, como eles.
 
-| Tecla / ação | Faz |
+1. Vá ao **quadro de PEDIDOS** (à esquerda) e aperte `E` para pegar o pedido mais antigo (ou clique numa comanda estando perto do quadro).
+2. A comanda mostra as etapas (T = tábua, P = pia, F = fogão, B = balcão) e a próxima estação **brilha**. Vá até ela e aperte `E`.
+3. A última etapa é no **balcão**: o prato é entregue e você ganha pontos (com bônus se o cliente ainda estava paciente).
+
+Faça a meta antes do tempo acabar sem deixar clientes demais irem embora. Um pedido novo fica alguns segundos só para você antes que um colega possa pegá-lo.
+
+| Tecla | Faz |
 | --- | --- |
-| `1` `2` `3` `4` | Seleciona o cozinheiro |
-| Clique num pedido | Manda o selecionado fazer esse pedido |
-| `←` `→` + `Enter` | Navega pelos pedidos e atribui (alternativa ao mouse) |
-| `P` | Pausa / continua |
-| `D` | Liga / desliga o modo debug (filas de espera, FPS, threads) |
-| `Esc` | Sai da partida (pede confirmação) |
-
-Uma ordem vira uma **reserva**: nenhum outro cozinheiro pega aquele pedido, e o escolhido o faz assim que terminar o que está fazendo.
+| WASD / setas | anda |
+| `E` / Espaço | pega pedido no quadro / usa a estação |
+| `Q` | sai da fila da estação / descarta o pedido na mão |
+| `P` | pausa |
+| `D` | modo debug: filas de espera, threads vivas, FPS |
+| `Esc` | sai da partida (pede confirmação) |
 
 ## Como contribuir
 

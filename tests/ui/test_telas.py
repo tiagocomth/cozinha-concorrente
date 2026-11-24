@@ -279,3 +279,20 @@ def test_sem_jogador_e_q_nao_quebram(telas_abertas, tela):
     t.atualizar(1 / 60)
     t.desenhar(tela)
     assert t.avatar is None
+
+
+def test_estrelas():
+    from cozinha.ui.telas import estrelas
+    assert estrelas(0, 200) == 0
+    assert estrelas(99, 200) == 0
+    assert estrelas(100, 200) == 1
+    assert estrelas(160, 200) == 2
+    assert estrelas(200, 200) == 3
+    assert estrelas(500, 200) == 3
+
+
+def test_inicio_e_resultado_desenham(tela):
+    from cozinha.config import Config
+    from cozinha.modelo.retrato import Retrato
+    TelaInicio(Config.single_player()).desenhar(tela)
+    TelaResultado(Config.single_player(), Retrato.exemplo()).desenhar(tela)

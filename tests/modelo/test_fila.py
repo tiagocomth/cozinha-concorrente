@@ -223,3 +223,13 @@ def test_pedido_view_etapas():
     (v,) = fila.views(0)
     assert v.etapas == ((T,), (F,), (F, B))
     assert v.etapa_atual == 0
+
+
+def test_tem_pedido_livre():
+    fila = FilaDePedidos(6)
+    fila.colocar(lambda: Pedido(1, RECEITA, 10.0), 0.05)
+    assert fila.tem_pedido_livre(2, agora=10.5, idade_minima=1.0) is False
+    assert fila.tem_pedido_livre(2, agora=11.0, idade_minima=1.0) is True
+    fila.reservar(1, 3)
+    assert fila.tem_pedido_livre(2, agora=20.0, idade_minima=1.0) is False
+    assert fila.tem_pedido_livre(3, agora=20.0, idade_minima=1.0) is True

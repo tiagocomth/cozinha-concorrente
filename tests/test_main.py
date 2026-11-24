@@ -9,5 +9,5 @@ def test_main_args(monkeypatch):
     monkeypatch.setattr("cozinha.ui.app.rodar", recebidas.append)
     principal.main([])
     principal.main(["--demo-deadlock"])
-    assert recebidas[0] == Config()
+    assert recebidas[0] == Config.single_player()
     assert recebidas[1] == Config.demo_deadlock()
