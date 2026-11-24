@@ -116,6 +116,9 @@ INICIO_JOGADOR: tuple[float, float] = (560.0, 520.0)
 CAPA_CARTAO = pygame.Rect(240, 90, 800, 560)
 ESTRELA_RAIO = 30
 NIVEL_LARGURA = 130
+EFEITO_SEGUNDOS = 1.2
+EFEITO_SUBIDA = 50.0           # pixels por segundo
+PULSO_SEGUNDOS = 0.4
 AVISO_SEGUNDOS = 2.5          # quanto tempo uma mensagem fica na linha de dica
 
 # Debug e confirmação
