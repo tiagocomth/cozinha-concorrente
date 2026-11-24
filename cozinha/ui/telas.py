@@ -19,6 +19,7 @@ from cozinha.modelo.tipos import EstadoCozinheiro, EstadoPartida
 from cozinha.ui import desenho, entrada, layout
 from cozinha.ui.animacao import Animacao, alvo, mover
 from cozinha.ui.avatar import Avatar
+from cozinha.ui.efeitos import Efeitos
 
 log = logging.getLogger(__name__)
 SAIR = object()   # sentinela: fechar o programa
@@ -90,7 +91,7 @@ class TelaInicio:
                     f"sem perder {c.limite_perdidos} clientes.")
         desenho._texto(sup, f.media, objetivo, _centro(232), layout.TINTA, centro=True)
         if c.jogador:
-            desenho._texto(sup, f.media, "Você é o cozinheiro 1. Os outros disputam as mesmas "
+            desenho._texto(sup, f.pequena, "Você é o cozinheiro 1. Os outros disputam as mesmas "
                            "estações com você.", _centro(262), layout.TINTA_FRACA, centro=True)
             desenho.desenhar_seletor_nivel(sup, f, NIVEIS, self.nivel, _centro(305))
         for i, (tecla, texto) in enumerate(CONTROLES):
@@ -124,6 +125,8 @@ class TelaJogo:
         self.aviso = ""                     # mensagem curta na linha de dica
         self._aviso_ate = 0.0
         self._ultima_mensagem: str | None = None
+        self._efeitos = Efeitos()
+        self._andando: frozenset[int] = frozenset()     # quem se moveu no último quadro
 
     # ---------- eventos ----------
 
@@ -198,11 +201,17 @@ class TelaJogo:
     def atualizar(self, dt: float) -> None:
         # Um RuntimeError aqui (thread morreu) sobe até o rodar, que encerra tudo (spec 07).
         self.jogo.atualizar()
-        self._retrato = r = self.jogo.retrato()      # um retrato por quadro (RC06)
+        anterior, self._retrato = self._retrato, self.jogo.retrato()   # um por quadro (RC06)
+        r = self._retrato
+        antes = dict(self._animacao.posicoes)
         self._animacao.atualizar(r, dt)
         self._t += dt
+        self._efeitos.observar(anterior, r, self.mapa)
+        self._efeitos.atualizar(dt)
+        self._andando = frozenset(i for i, p in self._animacao.posicoes.items() if antes.get(i) != p)
         if self.avatar is None or r.estado is not EstadoPartida.RODANDO:
             return
+        avatar_antes = self.avatar.pos
         eu = r.cozinheiros[0]
         if eu.mensagem and eu.mensagem != self._ultima_mensagem:
             self._ultima_mensagem = eu.mensagem
@@ -213,13 +222,17 @@ class TelaJogo:
                                     layout.VELOCIDADE_JOGADOR, dt)
         else:
             self.avatar.andar(entrada.direcao(self._teclas()), dt, self.mapa)
+        if self.avatar.pos != avatar_antes:
+            self._andando |= {eu.id}
 
     def desenhar(self, sup: pygame.Surface) -> None:
         r = self._retrato
         aviso = self.aviso if self._t < self._aviso_ate else None
         desenho.desenhar_retrato(sup, r, self._animacao.posicoes, self._fontes,
                                  jogador_pos=self.avatar.pos if self.avatar else None,
-                                 perto=self._perto(), t=self._t, dica=aviso)
+                                 perto=self._perto(), t=self._t, dica=aviso,
+                                 efeitos=self._efeitos.ativos, pulso=self._efeitos.pulso_pontos,
+                                 andando=self._andando)
         if self.debug:
             desenho.desenhar_debug(sup, r, self._fontes, self.fps, threading.active_count())
         if self.confirmando:

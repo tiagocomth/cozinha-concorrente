@@ -39,56 +39,112 @@ def cor_paciencia(fracao: float) -> Cor:
 
 def _barra(sup: pygame.Surface, r: pygame.Rect, fracao: float, cor: Cor,
            fundo: Cor = layout.LIVRE) -> None:
-    pygame.draw.rect(sup, fundo, r, border_radius=3)
+    pygame.draw.rect(sup, fundo, r, border_radius=r.height // 2)
     cheio = r.copy()
     cheio.width = round(r.width * max(0.0, min(1.0, fracao)))
     if cheio.width:
-        pygame.draw.rect(sup, cor, cheio, border_radius=3)
+        pygame.draw.rect(sup, cor, cheio, border_radius=r.height // 2)
+        if cheio.width > 4 and r.height >= 6:          # reflexo em cima
+            reflexo = pygame.Rect(cheio.left + 2, cheio.top + 1, cheio.width - 4, max(1, r.height // 4))
+            pygame.draw.rect(sup, tuple(min(255, c + 60) for c in cor), reflexo,
+                             border_radius=reflexo.height)
 
 
 def _nomes(tipos: tuple[TipoEstacao, ...]) -> str:
     return " + ".join(NOMES[t] for t in tipos)
 
 
+def desenhar_icone_etapa(sup: pygame.Surface, tipo: TipoEstacao, rect: pygame.Rect) -> None:
+    """Faca (tábua), gota (pia), chama (fogão) ou prato (balcão), sobre a cor da estação."""
+    pygame.draw.rect(sup, layout.CORES_ESTACAO[tipo], rect, border_radius=5)
+    cx, cy, m = rect.centerx, rect.centery, rect.width // 2 - 3
+    if tipo is TABUA:
+        pygame.draw.line(sup, layout.BALAO, (cx - m, cy + m), (cx + m // 2, cy - m // 2), 3)
+        pygame.draw.line(sup, layout.TINTA, (cx + m // 2, cy - m // 2), (cx + m, cy - m), 4)
+    elif tipo is PIA:
+        pygame.draw.circle(sup, layout.BALAO, (cx, cy + m // 3), m * 2 // 3)
+        pygame.draw.polygon(sup, layout.BALAO, [(cx, cy - m), (cx - m * 2 // 3, cy + m // 4),
+                                                (cx + m * 2 // 3, cy + m // 4)])
+    elif tipo is FOGAO:
+        pygame.draw.polygon(sup, layout.BRILHO, [(cx, cy - m), (cx + m * 2 // 3, cy + m // 3),
+                                                 (cx, cy + m), (cx - m * 2 // 3, cy + m // 3)])
+        pygame.draw.circle(sup, layout.BALAO, (cx, cy + m // 3), m // 3)
+    else:
+        pygame.draw.circle(sup, layout.BALAO, (cx, cy), m)
+        pygame.draw.circle(sup, layout.ACO_ESCURO, (cx, cy), m // 2, 1)
+
+
 def _icone_estacao(sup: pygame.Surface, f: Fontes, tipo: TipoEstacao, rect: pygame.Rect,
                    feito: bool = False, atual: bool = False) -> None:
-    cor = layout.CORES_ESTACAO[tipo]
-    if feito:
-        cor = tuple(c // 2 + 100 for c in cor)
-    pygame.draw.rect(sup, cor, rect, border_radius=4)
+    desenhar_icone_etapa(sup, tipo, rect)
+    if feito:                                   # etapa já feita: apagada, com um tique
+        veu = pygame.Surface(rect.size, pygame.SRCALPHA)
+        veu.fill((255, 255, 255, 150))
+        sup.blit(veu, rect)
+        pygame.draw.lines(sup, layout.META, False, [(rect.left + 4, rect.centery),
+                                                    (rect.centerx - 1, rect.bottom - 5),
+                                                    (rect.right - 3, rect.top + 4)], 3)
     if atual:
-        pygame.draw.rect(sup, layout.TINTA, rect.inflate(4, 4), 2, border_radius=5)
-    _texto(sup, f.pequena, layout.LETRAS_ESTACAO[tipo], rect.center, layout.BALAO, centro=True)
+        pygame.draw.rect(sup, layout.TINTA, rect.inflate(4, 4), 2, border_radius=6)
+
+
+def _icone_relogio(sup: pygame.Surface, centro: tuple[int, int], cor: Cor) -> None:
+    pygame.draw.circle(sup, cor, centro, 9, 2)
+    pygame.draw.line(sup, cor, centro, (centro[0], centro[1] - 6), 2)
+    pygame.draw.line(sup, cor, centro, (centro[0] + 4, centro[1]), 2)
+
+
+def _estrela(centro: tuple[float, float], raio: float) -> list[tuple[float, float]]:
+    return [(centro[0] + raio * (1 if k % 2 == 0 else 0.45) * math.cos(math.pi / 2 + k * math.pi / 5),
+             centro[1] - raio * (1 if k % 2 == 0 else 0.45) * math.sin(math.pi / 2 + k * math.pi / 5))
+            for k in range(10)]
+
+
+def _icone_cliente(sup: pygame.Surface, centro: tuple[int, int], cor: Cor) -> None:
+    pygame.draw.circle(sup, cor, (centro[0], centro[1] - 5), 4)
+    pygame.draw.rect(sup, cor, (centro[0] - 6, centro[1], 12, 8), border_radius=4)
 
 
 # ---------- HUD e comandas ----------
 
-def desenhar_hud(sup: pygame.Surface, r: Retrato, f: Fontes) -> None:
+def desenhar_hud(sup: pygame.Surface, r: Retrato, f: Fontes, pulso: float = 0.0) -> None:
     pygame.draw.rect(sup, layout.PAINEL, (0, 0, layout.JANELA[0], layout.HUD_ALTURA))
     minutos, segundos = divmod(int(r.tempo_restante + 0.999), 60)
     cor_tempo = layout.ALERTA if r.tempo_restante < 30 else layout.TEXTO
-    _texto(sup, f.media, f"Tempo {minutos}:{segundos:02d}", (layout.MARGEM, 16), cor_tempo)
-    _texto(sup, f.media, f"Pontos {r.pontos} / {r.meta}", (230, 16))
-    _barra(sup, layout.BARRA_PONTOS, r.pontos / r.meta if r.meta else 1.0, layout.META)
+    _icone_relogio(sup, (layout.MARGEM + 9, 26), cor_tempo)
+    _texto(sup, f.media, f"{minutos}:{segundos:02d}", (layout.MARGEM + 26, 16), cor_tempo)
+    cor_pontos = layout.BRILHO if pulso > 0 else layout.TEXTO
+    raio = 10 + 4 * pulso                                    # a estrela pulsa ao entregar
+    pygame.draw.polygon(sup, layout.BRILHO, _estrela((240, 26), raio))
+    _texto(sup, f.media, f"{r.pontos} / {r.meta}", (258, 16), cor_pontos)
+    barra = layout.BARRA_PONTOS.inflate(0, round(4 * pulso))
+    _barra(sup, barra, r.pontos / r.meta if r.meta else 1.0, layout.META)
     if r.meta_batida:
         _texto(sup, f.media, "meta batida!", (layout.BARRA_PONTOS.right + 16, 16), layout.META)
     if r.limite_perdidos > layout.MAX_BOLINHAS:      # ex.: a demo de deadlock (limite 1000)
-        texto = f"Perdidos {r.perdidos} / {r.limite_perdidos}"
+        texto = f"{r.perdidos} / {r.limite_perdidos}"
         largura = f.media.size(texto)[0]
-        _texto(sup, f.media, texto, (layout.JANELA[0] - layout.MARGEM - largura, 16))
+        x = layout.JANELA[0] - layout.MARGEM - largura
+        _icone_cliente(sup, (x - 16, 26), layout.TEXTO)
+        _texto(sup, f.media, texto, (x, 16))
         return
     x = layout.JANELA[0] - layout.MARGEM - r.limite_perdidos * 2 * (layout.BOLINHA_RAIO + 4)
-    _texto(sup, f.media, "Perdidos", (x - 100, 16))
+    _texto(sup, f.pequena, "clientes perdidos", (x - 150, 19), layout.TEXTO_FRACO)
     for i in range(r.limite_perdidos):
         centro = (x + layout.BOLINHA_RAIO + i * 2 * (layout.BOLINHA_RAIO + 4), 26)
-        cheia = i < r.perdidos
-        pygame.draw.circle(sup, layout.ALERTA if cheia else layout.LIVRE, centro,
-                           layout.BOLINHA_RAIO, 0 if cheia else 2)
+        perdido = i < r.perdidos
+        if perdido:
+            pygame.draw.circle(sup, layout.ALERTA, centro, layout.BOLINHA_RAIO)
+        _icone_cliente(sup, centro, layout.TEXTO if perdido else layout.LIVRE)
 
 
 def desenhar_comanda(sup: pygame.Surface, p: PedidoView, rect: pygame.Rect, f: Fontes,
-                     do_jogador: bool = False, cursor: bool = False) -> None:
-    """Comanda de papel: número, prato, trilha de etapas e paciência do cliente."""
+                     do_jogador: bool = False, cursor: bool = False, t: float = 0.0) -> None:
+    """Comanda de papel: número, prato, trilha de etapas e paciência do cliente.
+    Treme quando o cliente está quase indo embora."""
+    if p.paciencia <= layout.LIMIAR_PACIENCIA_BAIXA:
+        rect = rect.move(round(layout.TREMOR * math.sin(t * 40)), 0)
+    pygame.draw.rect(sup, layout.SOMBRA_ESCURA, rect.move(3, 3), border_radius=6)
     pygame.draw.rect(sup, layout.PAPEL_JOGADOR if do_jogador else layout.PAPEL, rect,
                      border_radius=6)
     if p.reservado_para is not None or do_jogador:
@@ -96,7 +152,9 @@ def desenhar_comanda(sup: pygame.Surface, p: PedidoView, rect: pygame.Rect, f: F
         pygame.draw.rect(sup, layout.cor_cozinheiro(dono or 1), rect, 3, border_radius=6)
     if cursor:
         pygame.draw.rect(sup, layout.DESTAQUE, rect.inflate(6, 6), 2, border_radius=8)
-    _texto(sup, f.media, f"#{p.id} {p.receita}", (rect.x + 10, rect.y + 8), layout.TINTA)
+    titulo = f"#{p.id} {p.receita}"
+    fonte = f.media if f.media.size(titulo)[0] <= rect.width - 20 else f.pequena  # cabe no papel
+    _texto(sup, fonte, titulo, (rect.x + 10, rect.y + 8), layout.TINTA)
     for i, (tipos, icone) in enumerate(zip(p.etapas, layout.icones_comanda(rect, len(p.etapas)))):
         _icone_estacao(sup, f, max(tipos), icone, feito=i < p.etapa_atual,
                        atual=i == p.etapa_atual and do_jogador)
@@ -116,11 +174,11 @@ def desenhar_etiqueta_preparo(sup: pygame.Surface, p: PedidoView, rect: pygame.R
 
 
 def desenhar_pedidos(sup: pygame.Surface, r: Retrato, f: Fontes, cursor: int | None = None,
-                     pedido_jogador: int | None = None) -> None:
+                     pedido_jogador: int | None = None, t: float = 0.0) -> None:
     for pid, rect in layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila).items():
         p = next(x for x in r.pedidos if x.id == pid)
         if p.estado is EstadoPedido.AGUARDANDO:
-            desenhar_comanda(sup, p, rect, f, cursor=pid == cursor)
+            desenhar_comanda(sup, p, rect, f, cursor=pid == cursor, t=t)
         elif pid == pedido_jogador:
             desenhar_etiqueta_preparo(sup, p, rect, f)
             pygame.draw.rect(sup, layout.BRILHO, rect.inflate(4, 4), 2, border_radius=6)
@@ -143,6 +201,7 @@ def desenhar_piso(sup: pygame.Surface) -> None:
 
 def _bancada(sup: pygame.Surface, rect: pygame.Rect, cor: Cor = layout.ACO_ESCURO) -> pygame.Rect:
     """Fundo da estação e faixa do nome; devolve o corpo, onde o objeto é desenhado."""
+    pygame.draw.rect(sup, layout.SOMBRA, rect.move(4, 5), border_radius=8)
     pygame.draw.rect(sup, layout.TINTA, rect, border_radius=8)
     corpo = layout.corpo_estacao(rect)
     pygame.draw.rect(sup, cor, corpo, border_radius=8)
@@ -183,8 +242,18 @@ def desenhar_fogao(sup: pygame.Surface, rect: pygame.Rect, aceso: bool) -> None:
             pygame.draw.circle(sup, layout.ACO_ESCURO, centro, raio, 2)
 
 
+def desenhar_vapor(sup: pygame.Surface, rect: pygame.Rect, t: float) -> None:
+    """Fumacinha subindo das bocas de um fogão aceso (animada por t)."""
+    for i, (centro, raio) in enumerate(layout.bocas_fogao(rect)):
+        fase = (t * 20 + i * 7) % layout.VAPOR_ALTURA
+        tamanho = max(2, raio - round(fase / 4))
+        pygame.draw.circle(sup, layout.VAPOR, (centro[0] + round(3 * math.sin(t * 5 + i)),
+                                               round(centro[1] - fase)), tamanho, 2)
+
+
 def desenhar_balcao(sup: pygame.Surface, rect: pygame.Rect, vagas: list[pygame.Rect],
                     ocupacoes: list[int | None]) -> None:
+    pygame.draw.rect(sup, layout.SOMBRA, rect.move(-5, 5), border_radius=8)
     pygame.draw.rect(sup, layout.MADEIRA, rect, border_radius=8)
     pygame.draw.rect(sup, layout.TINTA, rect, 2, border_radius=8)
     for vaga, dono in zip(vagas, ocupacoes):
@@ -241,6 +310,8 @@ def desenhar_estacoes(sup: pygame.Surface, r: Retrato, mapa: MapaEstacoes, f: Fo
             desenhar_pia(sup, rect)
         else:
             desenhar_fogao(sup, rect, aceso=e.ocupada_por is not None)
+            if e.ocupada_por is not None:
+                desenhar_vapor(sup, rect, t)
         _texto(sup, f.pequena, f"{NOMES[e.tipo]} {e.indice + 1}",
                (rect.centerx, rect.bottom - layout.FAIXA_NOME // 2), layout.BALAO, centro=True)
     balcao = mapa.estacao(BALCAO, 0)
@@ -284,10 +355,13 @@ def rotulo_cozinheiro(c: CozinheiroView) -> tuple[str, Cor] | None:
 
 
 def desenhar_chef(sup: pygame.Surface, c: CozinheiroView, pos: Ponto, f: Fontes,
-                  jogador: bool = False, selecionado: bool = False) -> None:
-    """Corpo na cor do cozinheiro, chapéu de chef e o número. O do jogador é maior."""
+                  jogador: bool = False, selecionado: bool = False, andando: bool = False,
+                  t: float = 0.0) -> None:
+    """Corpo na cor do cozinheiro, chapéu de chef e o número. O do jogador é maior.
+    Andando, o chef balança um pouco para cima e para baixo."""
     raio = layout.JOGADOR_RAIO if jogador else layout.COZINHEIRO_RAIO
-    centro = (round(pos[0]), round(pos[1]))
+    balanco = round(layout.BALANCO * abs(math.sin(t * layout.BALANCO_VELOCIDADE))) if andando else 0
+    centro = (round(pos[0]), round(pos[1]) - balanco)
     pygame.draw.ellipse(sup, layout.SOMBRA,                            # sombra no chão
                         pygame.Rect(centro[0] - raio, centro[1] + raio - 6, 2 * raio, 12))
     if c.estado is EstadoCozinheiro.ESPERANDO:
@@ -358,16 +432,24 @@ def desenhar_pausa(sup: pygame.Surface, f: Fontes) -> None:
     _texto(sup, f.grande, "PAUSADO — P para continuar", meio, centro=True)
 
 
+def desenhar_efeitos(sup: pygame.Surface, efeitos, f: Fontes) -> None:
+    for e in efeitos:
+        imagem = f.grande.render(e.texto, True, e.cor)
+        imagem.set_alpha(e.alfa)
+        sup.blit(imagem, imagem.get_rect(center=(round(e.pos[0]), round(e.pos[1]))))
+
+
 def desenhar_retrato(sup: pygame.Surface, r: Retrato, posicoes: Mapping[int, Ponto],
                      f: Fontes, cursor: int | None = None, jogador_pos: Ponto | None = None,
                      perto: Alvo | None = None, t: float = 0.0, dica: str | None = None,
-                     dica_alerta: bool = False) -> None:
+                     dica_alerta: bool = False, efeitos=(), pulso: float = 0.0,
+                     andando: frozenset[int] = frozenset()) -> None:
     """Um quadro inteiro da partida a partir de um retrato (RC06)."""
     sup.fill(layout.FUNDO)
     mapa = layout.mapa_estacoes(r.grupos)
     jogador = next((c for c in r.cozinheiros if c.jogador), None)
-    desenhar_hud(sup, r, f)
-    desenhar_pedidos(sup, r, f, cursor, jogador.pedido_id if jogador else None)
+    desenhar_hud(sup, r, f, pulso)
+    desenhar_pedidos(sup, r, f, cursor, jogador.pedido_id if jogador else None, t)
     desenhar_piso(sup)
     destaque = jogador.proxima if jogador else ()
     desenhar_estacoes(sup, r, mapa, f, destaque, perto, t)
@@ -376,11 +458,13 @@ def desenhar_retrato(sup: pygame.Surface, r: Retrato, posicoes: Mapping[int, Pon
             pos = jogador_pos
         else:
             pos = posicoes.get(c.id, layout.posicao_descanso(c.id))
-        desenhar_chef(sup, c, pos, f, jogador=c.jogador, selecionado=c.id == r.selecionado)
+        desenhar_chef(sup, c, pos, f, jogador=c.jogador, selecionado=c.id == r.selecionado,
+                      andando=c.id in andando, t=t)
         rotulo = rotulo_cozinheiro(c)
         if rotulo:
             raio = layout.JOGADOR_RAIO if c.jogador else layout.COZINHEIRO_RAIO
             desenhar_rotulo(sup, f, rotulo[0], (round(pos[0]), round(pos[1]) - raio - 16), rotulo[1])
+    desenhar_efeitos(sup, efeitos or (), f)
     if dica is None and jogador is not None:
         dica = dica_jogador(jogador, perto)
     if dica:

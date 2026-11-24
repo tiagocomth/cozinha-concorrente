@@ -54,6 +54,7 @@ BRILHO: Cor = (255, 226, 80)
 BALAO: Cor = (255, 255, 255)
 CHAPEU: Cor = (252, 252, 252)
 SOMBRA: Cor = (190, 178, 158)
+SOMBRA_ESCURA: Cor = (16, 17, 21)
 CORES_ESTACAO = {TipoEstacao.TABUA: (196, 140, 80), TipoEstacao.PIA: (90, 160, 220),
                  TipoEstacao.FOGAO: (230, 96, 52), TipoEstacao.BALCAO: (150, 110, 190)}
 LETRAS_ESTACAO = {TipoEstacao.TABUA: "T", TipoEstacao.PIA: "P",
@@ -117,8 +118,14 @@ CAPA_CARTAO = pygame.Rect(240, 90, 800, 560)
 ESTRELA_RAIO = 30
 NIVEL_LARGURA = 130
 EFEITO_SEGUNDOS = 1.2
+EFEITO_RECUO = 50              # distância do "+N" para a esquerda do balcão
 EFEITO_SUBIDA = 50.0           # pixels por segundo
 PULSO_SEGUNDOS = 0.4
+BALANCO = 3                   # pixels que o chef sobe e desce ao andar
+BALANCO_VELOCIDADE = 12.0
+TREMOR = 2                    # pixels que a comanda treme com o cliente impaciente
+VAPOR_ALTURA = 18
+VAPOR: Cor = (236, 236, 240)
 AVISO_SEGUNDOS = 2.5          # quanto tempo uma mensagem fica na linha de dica
 
 # Debug e confirmação
@@ -128,6 +135,8 @@ DEBUG_LINHA = 20
 CONFIRMACAO_RETANGULO = pygame.Rect(390, 290, 500, 140)
 
 FONTE_TAMANHOS = (20, 26, 52)
+FONTES_PREFERIDAS = "arialroundedmtbold,nunito,varelaround,helveticarounded,verdana,arial"
+ESCALA_SYSFONT = 0.64         # SysFont mede em pontos; a padrão do pygame é maior por tamanho
 NOMES_ESTACAO = {TipoEstacao.TABUA: "TÁBUA", TipoEstacao.PIA: "PIA",
                  TipoEstacao.FOGAO: "FOGÃO", TipoEstacao.BALCAO: "BALCÃO"}
 
@@ -142,7 +151,15 @@ def fontes() -> Fontes:
     """Cria as fontes (a padrão do pygame). Chame uma vez por tela, não a cada quadro."""
     if not pygame.font.get_init():
         pygame.font.init()
-    return Fontes(*(pygame.font.Font(None, t) for t in FONTE_TAMANHOS))
+
+    def fonte(tamanho: int) -> pygame.font.Font:
+        try:                          # arredondada do sistema, se houver
+            return pygame.font.SysFont(FONTES_PREFERIDAS, round(tamanho * ESCALA_SYSFONT),
+                                       bold=True)
+        except Exception:             # sem fontes do sistema: a padrão do pygame
+            return pygame.font.Font(None, tamanho)
+
+    return Fontes(*(fonte(t) for t in FONTE_TAMANHOS))
 
 
 def cor_cozinheiro(cozinheiro_id: int) -> Cor:

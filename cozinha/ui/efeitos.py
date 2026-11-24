@@ -41,8 +41,9 @@ class Efeitos:
         if atual.entregues > anterior.entregues:
             balcao = mapa.estacao(TipoEstacao.BALCAO, 0)
             ganho = atual.pontos - anterior.pontos
-            self.ativos.append(Efeito(f"+{ganho}", (float(balcao.centerx), float(balcao.top)),
-                                      layout.META))
+            # À esquerda do balcão, que fica na parede direita: o texto não sai da janela.
+            self.ativos.append(Efeito(f"+{ganho}", (float(balcao.left - layout.EFEITO_RECUO),
+                                                    float(balcao.top)), layout.META))
             self.pulso_pontos = 1.0
         if atual.perdidos > anterior.perdidos:
             agora = {p.id for p in atual.pedidos}
