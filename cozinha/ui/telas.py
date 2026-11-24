@@ -12,7 +12,7 @@ from typing import Protocol
 
 import pygame
 
-from cozinha.config import Config
+from cozinha.config import NIVEIS, Config
 from cozinha.jogo import Jogo
 from cozinha.modelo.retrato import Retrato
 from cozinha.modelo.tipos import EstadoCozinheiro, EstadoPartida
@@ -57,13 +57,23 @@ def _centro(y: int) -> tuple[int, int]:
 class TelaInicio:
     def __init__(self, config: Config) -> None:
         self.config = config
+        self.nivel = config.nivel or "Normal"
         self._fontes = layout.fontes()
 
+    def _config_escolhida(self) -> Config:
+        return Config.single_player(self.nivel) if self.config.jogador else self.config
+
     def evento(self, e: pygame.event.Event) -> Tela | object | None:
-        if e.type == pygame.KEYDOWN and e.key in ENTER:
-            return TelaJogo(self.config)
-        if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+        if e.type != pygame.KEYDOWN:
+            return None
+        if e.key in ENTER:
+            return TelaJogo(self._config_escolhida())
+        if e.key == pygame.K_ESCAPE:
             return SAIR
+        if self.config.jogador and e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            passo = 1 if e.key == pygame.K_RIGHT else -1
+            i = min(max(NIVEIS.index(self.nivel) + passo, 0), len(NIVEIS) - 1)
+            self.nivel = NIVEIS[i]
         return None
 
     def proxima(self) -> None:
@@ -75,16 +85,17 @@ class TelaInicio:
     def desenhar(self, sup: pygame.Surface) -> None:
         f = self._fontes
         desenho.desenhar_capa(sup, f, "Cozinha Concorrente")
-        c = self.config
+        c = self._config_escolhida()
         objetivo = (f"Faça {c.meta_pontos} pontos em {int(c.duracao_partida) // 60} minutos "
                     f"sem perder {c.limite_perdidos} clientes.")
-        desenho._texto(sup, f.media, objetivo, _centro(250), layout.TINTA, centro=True)
+        desenho._texto(sup, f.media, objetivo, _centro(232), layout.TINTA, centro=True)
         if c.jogador:
             desenho._texto(sup, f.media, "Você é o cozinheiro 1. Os outros disputam as mesmas "
-                           "estações com você.", _centro(282), layout.TINTA_FRACA, centro=True)
+                           "estações com você.", _centro(262), layout.TINTA_FRACA, centro=True)
+            desenho.desenhar_seletor_nivel(sup, f, NIVEIS, self.nivel, _centro(305))
         for i, (tecla, texto) in enumerate(CONTROLES):
-            desenho.desenhar_tecla_legenda(sup, f, tecla, texto, (470, 330 + i * 40))
-        desenho._texto(sup, f.media, "Enter para começar · Esc para sair", _centro(600),
+            desenho.desenhar_tecla_legenda(sup, f, tecla, texto, (470, 345 + i * 38))
+        desenho._texto(sup, f.media, "Enter para começar · Esc para sair", _centro(604),
                        layout.TINTA, centro=True)
 
     def fechar(self) -> None:

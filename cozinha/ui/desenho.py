@@ -471,3 +471,18 @@ def desenhar_estrelas(sup: pygame.Surface, n: int, centro: tuple[int, int]) -> N
                   for k in range(10)]
         pygame.draw.polygon(sup, layout.BRILHO if i < n else layout.LIVRE, pontos)
         pygame.draw.polygon(sup, layout.TINTA, pontos, 2)
+
+
+def desenhar_seletor_nivel(sup: pygame.Surface, f: Fontes, niveis: tuple[str, ...], atual: str,
+                           centro: tuple[int, int]) -> None:
+    """◄ Fácil  [Normal]  Difícil ►: o nível escolhido fica destacado."""
+    largura = layout.NIVEL_LARGURA
+    x0 = centro[0] - largura * len(niveis) // 2
+    for i, nivel in enumerate(niveis):
+        caixa = pygame.Rect(x0 + i * largura + 6, centro[1] - 16, largura - 12, 32)
+        escolhido = nivel == atual
+        pygame.draw.rect(sup, layout.BRILHO if escolhido else layout.BALAO, caixa, border_radius=8)
+        pygame.draw.rect(sup, layout.TINTA, caixa, 2 if escolhido else 1, border_radius=8)
+        _texto(sup, f.media, nivel, caixa.center, layout.TINTA, centro=True)
+    _texto(sup, f.pequena, "<  setas  >", (centro[0], centro[1] + 26), layout.TINTA_FRACA,
+           centro=True)

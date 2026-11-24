@@ -11,6 +11,15 @@ from cozinha.modelo.tipos import TipoEstacao
 TABUA, PIA, FOGAO, BALCAO = TipoEstacao
 
 
+NIVEIS: tuple[str, ...] = ("Fácil", "Normal", "Difícil")
+# nível → (meta, fator da paciência, intervalo inicial, intervalo mínimo, atraso dos automáticos)
+_PARAMETROS_NIVEL = {
+    "Fácil": (200, 1.0, 8.0, 3.0, 6.0),
+    "Normal": (300, 0.75, 6.0, 2.0, 4.0),
+    "Difícil": (400, 0.6, 5.0, 1.5, 2.0),
+}
+
+
 def _quantidade_padrao() -> Mapping[TipoEstacao, int]:
     return MappingProxyType({TABUA: 2, PIA: 1, FOGAO: 2, BALCAO: 2})
 
@@ -36,6 +45,8 @@ class Config:
     semente: int | None = None             # aleatoriedade reproduzível nos testes
     jogador: bool = False                  # True: o cozinheiro 1 é controlado pelo jogador
     atraso_automaticos: float = 0.0        # segundos que um pedido fica só para o jogador
+    receitas_progressivas: bool = False    # receitas longas ficam mais comuns com o tempo
+    nivel: str | None = None               # nível de dificuldade do single player
 
     def __post_init__(self) -> None:
         if not isinstance(self.quantidade, MappingProxyType):
@@ -67,14 +78,20 @@ class Config:
             raise ValueError("n_cozinheiros precisa estar entre 3 e 4")
 
     @classmethod
-    def single_player(cls) -> Config:
+    def single_player(cls, nivel: str = "Normal") -> Config:
         """O jogo de verdade: você é o cozinheiro 1, os outros são automáticos.
 
-        Um humano andando é mais lento que uma thread: a meta é menor, e um pedido novo
-        fica alguns segundos só para o jogador antes de um automático poder pegá-lo
-        (sem isso, as threads levam cada pedido no instante em que ele chega).
+        Um humano andando é mais lento que uma thread: um pedido novo fica alguns
+        segundos só para o jogador antes de um automático poder pegá-lo (sem isso,
+        as threads levam cada pedido no instante em que ele chega).
         """
-        return replace(cls(), jogador=True, meta_pontos=200, atraso_automaticos=6.0)
+        if nivel not in NIVEIS:
+            raise ValueError(f"nível desconhecido: {nivel!r} (use um de {NIVEIS})")
+        meta, fator, inicial, minimo, atraso = _PARAMETROS_NIVEL[nivel]
+        receitas = tuple(replace(r, paciencia=r.paciencia * fator) for r in RECEITAS)
+        return replace(cls(), jogador=True, meta_pontos=meta, receitas=receitas,
+                       intervalo_inicial=inicial, intervalo_minimo=minimo,
+                       atraso_automaticos=atraso, receitas_progressivas=True, nivel=nivel)
 
     @classmethod
     def demo_deadlock(cls) -> Config:

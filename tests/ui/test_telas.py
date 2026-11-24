@@ -296,3 +296,32 @@ def test_inicio_e_resultado_desenham(tela):
     from cozinha.modelo.retrato import Retrato
     TelaInicio(Config.single_player()).desenhar(tela)
     TelaResultado(Config.single_player(), Retrato.exemplo()).desenhar(tela)
+
+
+def test_inicio_troca_nivel(telas_abertas):
+    from cozinha.config import Config
+    t = TelaInicio(Config.single_player())
+    assert t.nivel == "Normal"
+    t.evento(tecla(pygame.K_RIGHT))
+    assert t.nivel == "Difícil"
+    t.evento(tecla(pygame.K_RIGHT))
+    assert t.nivel == "Difícil"
+    t.evento(tecla(pygame.K_LEFT))
+    t.evento(tecla(pygame.K_LEFT))
+    assert t.nivel == "Fácil"
+    jogo = t.evento(tecla(pygame.K_RETURN))
+    telas_abertas.append(jogo)
+    assert jogo.config.meta_pontos == 200
+
+
+def test_jogar_de_novo_mantem_nivel(telas_abertas):
+    from cozinha.config import Config
+    cfg = Config.single_player("Difícil")
+    nova = TelaResultado(cfg, Retrato_exemplo()).evento(tecla(pygame.K_RETURN))
+    telas_abertas.append(nova)
+    assert nova.config.nivel == "Difícil"
+
+
+def Retrato_exemplo():
+    from cozinha.modelo.retrato import Retrato
+    return Retrato.exemplo()

@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import random
 import threading
+from collections.abc import Sequence
 from threading import Event
 
 from cozinha.config import Config
@@ -13,6 +14,11 @@ from cozinha.modelo.receita import Receita
 from cozinha.modelo.relogio import Relogio
 
 log = logging.getLogger(__name__)
+
+
+def pesos_receitas(receitas: Sequence[Receita], fracao: float) -> list[float]:
+    """Pratos progressivos: no começo pesam as receitas curtas, no fim as longas."""
+    return [(1.0 - fracao) / len(r.etapas) + fracao * len(r.etapas) for r in receitas]
 
 
 class GeradorDePedidos(threading.Thread):
@@ -41,7 +47,7 @@ class GeradorDePedidos(threading.Thread):
             if not primeiro and not self._esperar(self.intervalo(self._relogio.agora())):
                 return
             primeiro = False
-            receita = self.sortear()
+            receita = self.sortear(self._relogio.agora())
             while not self._parar.is_set():
                 self._relogio.esperar_rodando(self._parar, self._config.tick)  # pausado: nada
                 if self._parar.is_set():
@@ -76,5 +82,9 @@ class GeradorDePedidos(threading.Thread):
         return max(c.intervalo_minimo,
                    c.intervalo_inicial - (c.intervalo_inicial - c.intervalo_minimo) * fracao)
 
-    def sortear(self) -> Receita:
-        return self._rng.choice(self._config.receitas)
+    def sortear(self, decorrido: float = 0.0) -> Receita:
+        receitas = self._config.receitas
+        if not self._config.receitas_progressivas:
+            return self._rng.choice(receitas)
+        fracao = min(decorrido / self._config.duracao_partida, 1.0)
+        return self._rng.choices(receitas, weights=pesos_receitas(receitas, fracao))[0]

@@ -156,11 +156,13 @@ class Config:
     fps: int = 60
     semente: int | None = None             # aleatoriedade reproduzível nos testes
     jogador: bool = False                  # True: o cozinheiro 1 é do jogador
+    receitas_progressivas: bool = False    # receitas longas ficam mais comuns com o tempo
+    nivel: str | None = None
 
     def validar_para_jogo(self) -> None: ...   # chamado por __main__, não pelos testes
 
     @classmethod
-    def single_player(cls) -> Config: ...   # jogador=True, meta_pontos=200 (o jogo de verdade)
+    def single_player(cls, nivel: str = "Normal") -> Config: ...   # NIVEIS = Fácil/Normal/Difícil: meta, paciência, intervalos e atraso de cada um
 
     @classmethod
     def demo_deadlock(cls) -> Config: ...

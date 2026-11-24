@@ -70,7 +70,7 @@ def test_demo_deadlock():
 
 
 def test_single_player():
-    c = Config.single_player()
+    c = Config.single_player("Fácil")
     assert c.jogador is True
     assert c.meta_pontos == 200
     c.validar_para_jogo()
@@ -84,3 +84,23 @@ def test_atraso_automaticos():
     import pytest as _pytest
     with _pytest.raises(ValueError):
         Config(atraso_automaticos=-1)
+
+
+def test_niveis():
+    from cozinha.config import NIVEIS
+    from cozinha.modelo.receita import RECEITAS
+    assert NIVEIS == ("Fácil", "Normal", "Difícil")
+    esperado = {"Fácil": (200, 1.0, 8.0, 3.0, 6.0), "Normal": (300, 0.75, 6.0, 2.0, 4.0),
+                "Difícil": (400, 0.6, 5.0, 1.5, 2.0)}
+    for nivel, (meta, fator, ini, mini, atraso) in esperado.items():
+        c = Config.single_player(nivel)
+        assert (c.meta_pontos, c.intervalo_inicial, c.intervalo_minimo, c.atraso_automaticos) == (
+            meta, ini, mini, atraso)
+        assert [r.paciencia for r in c.receitas] == pytest.approx(
+            [r.paciencia * fator for r in RECEITAS])
+        assert c.jogador and c.receitas_progressivas and c.nivel == nivel
+        c.validar_para_jogo()
+    assert Config.single_player().nivel == "Normal"
+    assert Config().receitas_progressivas is False
+    with pytest.raises(ValueError):
+        Config.single_player("Impossível")
