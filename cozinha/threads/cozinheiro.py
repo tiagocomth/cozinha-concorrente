@@ -23,8 +23,9 @@ log = logging.getLogger(__name__)
 class Cozinheiro(threading.Thread):
     def __init__(self, id: int, fila: FilaDePedidos, cozinha: Cozinha,
                  pontuacao: Pontuacao, relogio: Relogio, config: Config,
-                 parar: Event) -> None:
+                 parar: Event, jogador_livre: Callable[[], bool] | None = None) -> None:
         super().__init__(name=f"cozinheiro-{id}", daemon=True)
+        self._jogador_livre = jogador_livre   # single player: o jogador está sem pedido?
         self.id = id
         self._fila = fila
         self._cozinha = cozinha
@@ -91,7 +92,10 @@ class Cozinheiro(threading.Thread):
         """Single player: só pega um pedido que já está no quadro há `atraso_automaticos`
         segundos, para o jogador ter a chance de pegá-lo antes."""
         atraso = self._config.atraso_automaticos
-        return atraso <= 0 or self._fila.tem_pedido_livre(self.id, self._relogio.agora(), atraso)
+        # Só vale enquanto o jogador está livre para pegar: ocupado, os colegas pegam na hora.
+        if atraso <= 0 or self._jogador_livre is None or not self._jogador_livre():
+            return True
+        return self._fila.tem_pedido_livre(self.id, self._relogio.agora(), atraso)
 
     def _expirou(self, pedido: Pedido) -> bool:
         return self._config.expiracao and pedido.expirou(self._relogio.agora())

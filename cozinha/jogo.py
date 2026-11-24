@@ -38,13 +38,15 @@ class Jogo:
         self._gerador = GeradorDePedidos(self._fila, self._relogio, config, self._parar)
         # Single player: o cozinheiro 1 é do jogador (executa comandos da tela);
         # os outros são automáticos e disputam as mesmas estações com ele.
+        comuns = (self._fila, self._cozinha, self._pontuacao, self._relogio, config, self._parar)
+        self._jogador: CozinheiroJogador | None = (
+            CozinheiroJogador(1, *comuns) if config.jogador else None)
+        livre = self._jogador.livre if self._jogador is not None else None
         self._cozinheiros: list[Cozinheiro] = [
-            (CozinheiroJogador if config.jogador and i == 1 else Cozinheiro)(
-                i, self._fila, self._cozinha, self._pontuacao, self._relogio, config, self._parar)
+            self._jogador if self._jogador is not None and i == 1
+            else Cozinheiro(i, *comuns, jogador_livre=livre)
             for i in range(1, config.n_cozinheiros + 1)
         ]
-        self._jogador: CozinheiroJogador | None = (
-            self._cozinheiros[0] if config.jogador else None)  # type: ignore[assignment]
         self._lock = threading.Lock()          # protege as flags e o selecionado
         self._iniciado = False
         self._encerrado = False

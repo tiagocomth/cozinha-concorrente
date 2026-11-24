@@ -264,7 +264,8 @@ def test_automatico_espera_o_atraso(m):
     """No single player, o pedido fica um tempo no quadro só para o jogador."""
     x = m(atraso_automaticos=0.4)
     p = x.pedir(salada())
-    outro = Cozinheiro(2, x.fila, x.cozinha, x.pontuacao, x.relogio, x.config, x.parar)
+    outro = Cozinheiro(2, x.fila, x.cozinha, x.pontuacao, x.relogio, x.config, x.parar,
+                       jogador_livre=x.j.livre)
     x.outros.append(outro)
     outro.start()
     time.sleep(0.2)
@@ -275,9 +276,58 @@ def test_automatico_espera_o_atraso(m):
 def test_jogador_pega_antes_do_atraso(m):
     x = m(atraso_automaticos=5.0)
     p = x.pedir(salada())
-    outro = Cozinheiro(2, x.fila, x.cozinha, x.pontuacao, x.relogio, x.config, x.parar)
+    outro = Cozinheiro(2, x.fila, x.cozinha, x.pontuacao, x.relogio, x.config, x.parar,
+                       jogador_livre=x.j.livre)
     x.outros.append(outro)
     outro.start()
     x.j.start()
     x.j.comandar(PegarPedido())
     esperar(lambda: x.j.view().pedido_id == p.id)
+
+
+def test_q_trabalhando_mantem_o_pedido(m):
+    """Q no meio de uma etapa não interrompe nem descarta o pedido depois."""
+    x = m()
+    p = x.pedir(Receita("Salada", (Etapa("cortar", (TABUA,), 0.3),
+                                   Etapa("entregar", (BALCAO,), DUR)), 20, 60))
+    x.j.start()
+    x.j.comandar(PegarPedido())
+    esperar(lambda: x.j.view().pedido_id == p.id)
+    x.j.comandar(UsarEstacao(TABUA))
+    esperar(lambda: x.j.view().estado is EstadoCozinheiro.TRABALHANDO)
+    x.j.comandar(Desistir())
+    esperar(lambda: x.j.view().proxima == (BALCAO,))
+    time.sleep(0.1)
+    assert p.estado is EstadoPedido.EM_PREPARO and x.j.view().pedido_id == p.id
+    assert x.pontuacao.valores()[2] == 0
+
+
+def test_e_q_na_pausa_nao_descarta(m):
+    x = m()
+    p = x.pedir(salada())
+    x.j.start()
+    x.j.comandar(PegarPedido())
+    esperar(lambda: x.j.view().pedido_id == p.id)
+    x.relogio.pausar()
+    x.j.comandar(UsarEstacao(TABUA))
+    time.sleep(0.05)
+    x.j.comandar(Desistir())
+    x.relogio.retomar()
+    time.sleep(0.4)
+    assert p.estado is EstadoPedido.EM_PREPARO and x.j.view().pedido_id == p.id
+    assert x.pontuacao.valores()[2] == 0
+
+
+def test_atraso_so_com_jogador_livre(m):
+    """Com o jogador ocupado com um pedido, os colegas pegam os novos na hora."""
+    x = m(atraso_automaticos=5.0)
+    p1 = x.pedir(salada())
+    x.j.start()
+    x.j.comandar(PegarPedido())
+    esperar(lambda: x.j.view().pedido_id == p1.id)
+    outro = Cozinheiro(2, x.fila, x.cozinha, x.pontuacao, x.relogio, x.config, x.parar,
+                       jogador_livre=x.j.livre)
+    x.outros.append(outro)
+    outro.start()
+    p2 = x.pedir(salada())
+    esperar(lambda: p2.estado is not EstadoPedido.AGUARDANDO, prazo=1)
