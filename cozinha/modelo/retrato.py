@@ -30,6 +30,9 @@ class CozinheiroView:
     esperando: TipoEstacao | None      # estação que está esperando agora
     esperando_ha: float                # segundos esperando a estação atual (0 se não espera)
     espera_total: float                # segundos esperando na partida inteira
+    jogador: bool = False              # controlado pelo jogador (modo single player)
+    proxima: tuple[TipoEstacao, ...] = ()   # estações da etapa que o jogador precisa fazer
+    mensagem: str | None = None        # resultado do último comando do jogador
 
 
 @dataclass(frozen=True)
@@ -83,7 +86,8 @@ class Retrato:
             PedidoView(6, "Prato do dia", AG, 0.70, None, 5),
         )
         cozinheiros = (
-            CozinheiroView(1, TR, 1, "cortar", 0.50, ((T, 0),), None, 0.0, 1.5),
+            CozinheiroView(1, TR, 1, "cortar", 0.50, ((T, 0),), None, 0.0, 1.5,
+                           jogador=True, proxima=(T,), mensagem="Pegou #1 Salada"),
             CozinheiroView(2, TR, 2, "empratar", 0.30, ((F, 1), (B, 0)), None, 0.0, 4.0),
             CozinheiroView(3, TR, 3, "empratar", 0.90, ((B, 1),), None, 0.0, 2.2),
             CozinheiroView(4, ES, 4, "empratar", 0.0, ((F, 0),), B, 3.2, 6.8),
