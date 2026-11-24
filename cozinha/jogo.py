@@ -17,9 +17,10 @@ from cozinha.modelo.partida import Partida
 from cozinha.modelo.pontuacao import Pontuacao
 from cozinha.modelo.relogio import Relogio
 from cozinha.modelo.retrato import Retrato
-from cozinha.modelo.tipos import EstadoPartida
+from cozinha.modelo.tipos import EstadoPartida, TipoEstacao
 from cozinha.threads.cozinheiro import Cozinheiro
 from cozinha.threads.gerador import GeradorDePedidos
+from cozinha.threads.jogador import CozinheiroJogador, Desistir, PegarPedido, UsarEstacao
 
 log = logging.getLogger(__name__)
 
@@ -35,11 +36,15 @@ class Jogo:
         self._cozinha = Cozinha(config)
         self._fila = FilaDePedidos(config.tamanho_max_fila)
         self._gerador = GeradorDePedidos(self._fila, self._relogio, config, self._parar)
-        self._cozinheiros = [
-            Cozinheiro(i, self._fila, self._cozinha, self._pontuacao, self._relogio,
-                       config, self._parar)
+        # Single player: o cozinheiro 1 é do jogador (executa comandos da tela);
+        # os outros são automáticos e disputam as mesmas estações com ele.
+        self._cozinheiros: list[Cozinheiro] = [
+            (CozinheiroJogador if config.jogador and i == 1 else Cozinheiro)(
+                i, self._fila, self._cozinha, self._pontuacao, self._relogio, config, self._parar)
             for i in range(1, config.n_cozinheiros + 1)
         ]
+        self._jogador: CozinheiroJogador | None = (
+            self._cozinheiros[0] if config.jogador else None)  # type: ignore[assignment]
         self._lock = threading.Lock()          # protege as flags e o selecionado
         self._iniciado = False
         self._encerrado = False
@@ -116,6 +121,22 @@ class Jogo:
             selecionado = self._selecionado
         if selecionado is not None:
             self._fila.reservar(pedido_id, selecionado)
+
+    # ---------- comandos do jogador (single player): só enfileiram, nunca bloqueiam ----------
+
+    def pegar_pedido(self, pedido_id: int | None = None) -> None:
+        """Pega o pedido (ou o mais antigo livre). Sem jogador, não faz nada."""
+        if self._jogador is not None:
+            self._jogador.comandar(PegarPedido(pedido_id))
+
+    def usar_estacao(self, tipo: TipoEstacao) -> None:
+        if self._jogador is not None:
+            self._jogador.comandar(UsarEstacao(tipo))
+
+    def desistir(self) -> None:
+        """Na fila de uma estação: sai da fila. Parado com pedido: descarta o pedido."""
+        if self._jogador is not None:
+            self._jogador.comandar(Desistir())
 
     def pausar(self) -> None:
         self._partida.pausar()                 # a Partida já pausa o relógio

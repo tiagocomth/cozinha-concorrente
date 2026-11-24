@@ -54,3 +54,9 @@ def test_exemplo_casos_visuais(r):
 def test_imutavel(r):
     with pytest.raises(dataclasses.FrozenInstanceError):
         r.pontos = 1
+
+
+def test_exemplo_tem_jogador(r):
+    jogadores = [c for c in r.cozinheiros if c.jogador]
+    assert len(jogadores) == 1
+    assert jogadores[0].proxima

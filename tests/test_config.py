@@ -67,3 +67,12 @@ def test_demo_deadlock():
     assert c.limite_perdidos >= 1000
     # Pedidos chegando rápido: os dois cozinheiros ficam sempre ocupados e se cruzam no empratar.
     assert c.intervalo_inicial <= 2 and c.intervalo_minimo <= 2
+
+
+def test_single_player():
+    c = Config.single_player()
+    assert c.jogador is True
+    assert c.meta_pontos == 200
+    c.validar_para_jogo()
+    assert Config().jogador is False
+    assert Config.demo_deadlock().jogador is False

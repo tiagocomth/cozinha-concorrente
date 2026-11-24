@@ -34,6 +34,7 @@ class Config:
     tick: float = 0.05                     # granularidade de toda espera
     fps: int = 60
     semente: int | None = None             # aleatoriedade reproduzível nos testes
+    jogador: bool = False                  # True: o cozinheiro 1 é controlado pelo jogador
 
     def __post_init__(self) -> None:
         if not isinstance(self.quantidade, MappingProxyType):
@@ -61,6 +62,14 @@ class Config:
             raise ValueError("duracao_partida precisa estar entre 180 e 300 s (RF01)")
         if not 3 <= self.n_cozinheiros <= 4:
             raise ValueError("n_cozinheiros precisa estar entre 3 e 4")
+
+    @classmethod
+    def single_player(cls) -> Config:
+        """O jogo de verdade: você é o cozinheiro 1, os outros são automáticos.
+
+        Um humano andando é mais lento que uma thread, por isso a meta é menor.
+        """
+        return replace(cls(), jogador=True, meta_pontos=200)
 
     @classmethod
     def demo_deadlock(cls) -> Config:

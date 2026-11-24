@@ -276,3 +276,59 @@ def test_partida_completa(novo_jogo):
     assert r.estado in (EstadoPartida.VITORIA, EstadoPartida.DERROTA)
     assert r.entregues + r.perdidos > 0
     assert j.encerrar(timeout=2) == []
+
+
+# ---------- single player ----------
+
+from cozinha.modelo.tipos import EstadoCozinheiro as _EC  # noqa: E402
+
+
+def _salada_lenta_paciente():
+    return (Receita("Salada", (Etapa("cortar", (TABUA,), 0.05), Etapa("entregar", (BALCAO,), 0.05)),
+                    20, 60),)
+
+
+def test_jogo_com_jogador(novo_jogo):
+    j = novo_jogo(config_rapida(jogador=True, duracao_partida=30))
+    j.iniciar()
+    assert {"gerador", "cozinheiro-1", "cozinheiro-2"} <= _nomes_vivos()
+    r = j.retrato()
+    assert r.cozinheiros[0].jogador is True
+    assert not any(c.jogador for c in r.cozinheiros[1:])
+
+
+def test_jogador_faz_pedido_pelo_jogo(novo_jogo):
+    j = novo_jogo(config_rapida(jogador=True, duracao_partida=30, n_cozinheiros=1,
+                                receitas=_salada_lenta_paciente()))
+    j.iniciar()
+    esperar(lambda: any(p.estado is EstadoPedido.AGUARDANDO for p in j.retrato().pedidos))
+    j.pegar_pedido()
+    esperar(lambda: j.retrato().cozinheiros[0].pedido_id is not None)
+    meu = j.retrato().cozinheiros[0].pedido_id
+    j.usar_estacao(TABUA)
+    esperar(lambda: j.retrato().cozinheiros[0].proxima == (BALCAO,))
+    j.usar_estacao(BALCAO)
+    esperar(lambda: j.retrato().entregues >= 1)
+    assert all(p.id != meu for p in j.retrato().pedidos)
+
+
+def test_comandos_sem_jogador_ignorados(novo_jogo):
+    j = novo_jogo()
+    j.iniciar()
+    j.pegar_pedido()
+    j.usar_estacao(TABUA)
+    j.desistir()
+
+
+def test_encerrar_com_jogador_esperando(novo_jogo):
+    j = novo_jogo(config_rapida(jogador=True, duracao_partida=30, n_cozinheiros=1,
+                                quantidade={TABUA: 1, PIA: 1, FOGAO: 1, BALCAO: 1},
+                                receitas=_salada_lenta_paciente()))
+    j._cozinha.ocupar_todas(99, (TABUA,), lambda: False)
+    j.iniciar()
+    esperar(lambda: any(p.estado is EstadoPedido.AGUARDANDO for p in j.retrato().pedidos))
+    j.pegar_pedido()
+    esperar(lambda: j.retrato().cozinheiros[0].pedido_id is not None)
+    j.usar_estacao(TABUA)
+    esperar(lambda: j.retrato().cozinheiros[0].estado is _EC.ESPERANDO)
+    assert j.encerrar() == []

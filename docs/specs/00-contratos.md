@@ -155,8 +155,12 @@ class Config:
     tick: float = 0.05                     # granularidade de toda espera
     fps: int = 60
     semente: int | None = None             # aleatoriedade reproduzível nos testes
+    jogador: bool = False                  # True: o cozinheiro 1 é do jogador
 
     def validar_para_jogo(self) -> None: ...   # chamado por __main__, não pelos testes
+
+    @classmethod
+    def single_player(cls) -> Config: ...   # jogador=True, meta_pontos=200 (o jogo de verdade)
 
     @classmethod
     def demo_deadlock(cls) -> Config: ...
@@ -193,6 +197,9 @@ class CozinheiroView:
     esperando: TipoEstacao | None      # estação que está esperando agora
     esperando_ha: float                # segundos esperando a estação atual (0 se não espera)
     espera_total: float                # segundos esperando na partida inteira
+    jogador: bool = False              # controlado pelo jogador (single player)
+    proxima: tuple[TipoEstacao, ...] = ()   # estações da etapa que o jogador precisa fazer
+    mensagem: str | None = None        # resultado do último comando do jogador
 
 @dataclass(frozen=True)
 class EstacaoView:
