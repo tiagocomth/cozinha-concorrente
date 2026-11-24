@@ -119,50 +119,6 @@ def _esperar(cond, prazo: float = 3.0, tela=None) -> None:
         time.sleep(0.005)
 
 
-def _clique_no_pedido(t: TelaJogo, pedido_id: int) -> None:
-    r = t._retrato                           # o que está desenhado na tela
-    rect = layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila)[pedido_id]
-    t.evento(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=rect.center, button=1))
-
-
-def test_ordem_do_jogador(telas_abertas):
-    t = _tela_jogo(telas_abertas, duracao_partida=30, receitas=receitas_teste(dur=0.4, paciencia=20))
-    c2_ocupado = lambda: t.jogo.retrato().cozinheiros[1].pedido_id is not None  # noqa: E731
-
-    def aguardando():
-        return [p.id for p in t.jogo.retrato().pedidos if p.estado is EstadoPedido.AGUARDANDO]
-
-    _esperar(lambda: c2_ocupado() and len(aguardando()) >= 2, tela=t)
-    t.evento(tecla(pygame.K_p))              # pausado, ninguém tira pedido da fila
-    t.atualizar(1 / 60)                      # o retrato desenhado é o da pausa
-    alvo = aguardando()[-1]
-    t.evento(tecla(pygame.K_2))
-    _clique_no_pedido(t, alvo)
-    v = next(p for p in t.jogo.retrato().pedidos if p.id == alvo)
-    assert v.reservado_para == 2
-    t.evento(tecla(pygame.K_p))
-    _esperar(lambda: any(c.pedido_id == alvo for c in t.jogo.retrato().cozinheiros),
-             prazo=5, tela=t)
-    quem = next(c for c in t.jogo.retrato().cozinheiros if c.pedido_id == alvo)
-    assert quem.id == 2
-
-
-def test_clique_usa_o_retrato_desenhado(telas_abertas):
-    """Entre o quadro e o clique a fila pode andar: vale o cartão que o jogador viu."""
-    from dataclasses import replace as _replace
-
-    from cozinha.modelo.retrato import Retrato
-    t = _tela_jogo(telas_abertas, duracao_partida=30)
-    t.jogo.pausar()
-    visto = _replace(Retrato.exemplo(), tamanho_max_fila=6)
-    t._retrato = visto
-    pedidos: list[int] = []
-    t.jogo.atribuir = pedidos.append
-    rect = layout.cartoes_pedidos(visto.pedidos, visto.tamanho_max_fila)[6]
-    t.evento(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=rect.center, button=1))
-    assert pedidos == [6]
-
-
 def test_esc_pergunta_e_cancela(telas_abertas):
     t = _tela_jogo(telas_abertas, duracao_partida=30)
     t.evento(tecla(pygame.K_ESCAPE))
@@ -213,3 +169,113 @@ def test_desenhar_debug_e_confirmacao_exemplo(tela):
     f = layout.fontes()
     desenho.desenhar_debug(tela, Retrato.exemplo(), f, fps=59.7, threads_vivas=6)
     desenho.desenhar_confirmacao(tela, f)
+
+
+# ---------- single player ----------
+
+from cozinha.modelo.tipos import EstadoCozinheiro, TipoEstacao  # noqa: E402
+
+from .test_entrada import Teclas  # noqa: E402
+
+
+def _tela_jogador(abertas, teclas: Teclas, **kw) -> TelaJogo:
+    kw = {"duracao_partida": 30, "n_cozinheiros": 1, "receitas": receitas_teste(paciencia=30),
+          **kw}
+    t = TelaJogo(config_rapida(jogador=True, **kw), teclas=lambda: teclas)
+    abertas.append(t)
+    return t
+
+
+def _no_alvo(t: TelaJogo, alvo) -> None:
+    t.avatar.pos = t.mapa.areas_interacao[alvo][0].center
+
+
+def test_andar_com_teclas(telas_abertas):
+    teclas = Teclas(pygame.K_d)
+    t = _tela_jogador(telas_abertas, teclas)
+    x0 = t.avatar.pos[0]
+    for _ in range(10):
+        t.atualizar(1 / 60)
+    assert t.avatar.pos[0] > x0
+
+
+def test_nao_anda_pausado(telas_abertas):
+    teclas = Teclas(pygame.K_d)
+    t = _tela_jogador(telas_abertas, teclas)
+    t.evento(tecla(pygame.K_p))
+    x0 = t.avatar.pos
+    for _ in range(10):
+        t.atualizar(1 / 60)
+    assert t.avatar.pos == x0
+
+
+def test_nao_anda_ocupado(telas_abertas):
+    teclas = Teclas()
+    t = _tela_jogador(telas_abertas, teclas,
+                      quantidade={TipoEstacao.TABUA: 1, TipoEstacao.PIA: 1,
+                                  TipoEstacao.FOGAO: 1, TipoEstacao.BALCAO: 1})
+    t.jogo._cozinha.ocupar_todas(99, (TipoEstacao.TABUA,), lambda: False)
+    _esperar(lambda: any(p.estado is EstadoPedido.AGUARDANDO for p in t.jogo.retrato().pedidos),
+             tela=t)
+    _no_alvo(t, "quadro")
+    t.evento(tecla(pygame.K_e))
+    _esperar(lambda: t.jogo.retrato().cozinheiros[0].pedido_id is not None, tela=t)
+    _no_alvo(t, TipoEstacao.TABUA)
+    t.evento(tecla(pygame.K_e))
+    _esperar(lambda: t.jogo.retrato().cozinheiros[0].estado is EstadoCozinheiro.ESPERANDO, tela=t)
+    for _ in range(120):                    # chega ao lugar da fila
+        t.atualizar(1 / 60)
+    parado = t.avatar.pos
+    teclas.apertadas.add(pygame.K_d)
+    for _ in range(10):
+        t.atualizar(1 / 60)
+    assert t.avatar.pos == parado
+    t.evento(tecla(pygame.K_q))             # desiste da fila: volta a andar
+    _esperar(lambda: t.jogo.retrato().cozinheiros[0].estado is EstadoCozinheiro.LIVRE, tela=t)
+    for _ in range(10):
+        t.atualizar(1 / 60)
+    assert t.avatar.pos[0] > parado[0]
+
+
+def test_interagir_no_quadro_e_na_estacao(telas_abertas):
+    t = _tela_jogador(telas_abertas, Teclas())
+    _esperar(lambda: any(p.estado is EstadoPedido.AGUARDANDO for p in t.jogo.retrato().pedidos),
+             tela=t)
+    _no_alvo(t, "quadro")
+    t.evento(tecla(pygame.K_e))
+    _esperar(lambda: t.jogo.retrato().cozinheiros[0].pedido_id is not None, tela=t)
+    assert t.jogo.retrato().cozinheiros[0].proxima == (TipoEstacao.TABUA,)
+    _no_alvo(t, TipoEstacao.TABUA)
+    t.evento(tecla(pygame.K_e))
+    _esperar(lambda: t.jogo.retrato().cozinheiros[0].proxima == (TipoEstacao.BALCAO,), tela=t)
+
+
+def test_interagir_longe_avisa(telas_abertas, tela):
+    t = _tela_jogador(telas_abertas, Teclas())
+    t.evento(tecla(pygame.K_e))
+    assert "perto" in t.aviso
+    t.desenhar(tela)
+
+
+def test_clicar_comanda_so_no_quadro(telas_abertas):
+    t = _tela_jogador(telas_abertas, Teclas())
+    _esperar(lambda: any(p.estado is EstadoPedido.AGUARDANDO for p in t._retrato.pedidos), tela=t)
+    alvo = next(p.id for p in t._retrato.pedidos if p.estado is EstadoPedido.AGUARDANDO)
+    rect = layout.cartoes_pedidos(t._retrato.pedidos, t._retrato.tamanho_max_fila)[alvo]
+    clique = pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=rect.center, button=1)
+    t.evento(clique)
+    assert "quadro" in t.aviso.lower()
+    _no_alvo(t, "quadro")
+    t.jogo.pausar()                         # ninguém tira o pedido da fila enquanto isso
+    t.evento(clique)
+    t.jogo.retomar()
+    _esperar(lambda: t.jogo.retrato().cozinheiros[0].pedido_id == alvo, tela=t)
+
+
+def test_sem_jogador_e_q_nao_quebram(telas_abertas, tela):
+    t = _tela_jogo(telas_abertas, duracao_partida=30)
+    t.evento(tecla(pygame.K_e))
+    t.evento(tecla(pygame.K_q))
+    t.atualizar(1 / 60)
+    t.desenhar(tela)
+    assert t.avatar is None

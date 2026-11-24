@@ -11,18 +11,25 @@ Como o jogador coordena os cozinheiros, e o modo debug que mostra a concorrênci
 
 ## Controles
 
+### Modo single player (o jogo de verdade, `Config.single_player()`)
+
+Você é o cozinheiro 1. Os outros são automáticos e disputam as mesmas estações.
+
 | Tecla / ação | Faz | Chama |
 | --- | --- | --- |
-| `1` `2` `3` `4` | Seleciona o cozinheiro | `jogo.selecionar(n)` |
-| Clique num pedido | Manda o selecionado fazer esse pedido | `jogo.atribuir(pedido_id)` |
-| `←` `→` + `Enter` | Navega pelos pedidos e atribui (alternativa ao mouse) | `jogo.atribuir(pedido_id)` |
-| `P` | Pausa / continua | `jogo.pausar()` / `jogo.retomar()` |
-| `D` | Liga / desliga o modo debug | só na interface |
-| `Esc` | Pede confirmação para sair da partida (abaixo) | — |
+| WASD / setas | anda pela cozinha (colide com os móveis) | só na interface |
+| `E` / Espaço | perto do quadro: pega o pedido mais antigo livre; perto de uma estação: faz a etapa atual | `jogo.pegar_pedido()` / `jogo.usar_estacao(tipo)` |
+| clique numa comanda (perto do quadro) | pega aquele pedido | `jogo.pegar_pedido(id)` |
+| `Q` | na fila de uma estação: desiste da espera; parado com pedido: descarta | `jogo.desistir()` |
+| `P` | pausa / continua | `jogo.pausar()` / `jogo.retomar()` |
+| `D` | modo debug | só na interface |
+| `Esc` | sair da partida (pede confirmação) | — |
 
-**Como a ordem funciona (specs 03 e 07):** a ordem vira uma **reserva** do pedido para aquele cozinheiro. Nenhum outro cozinheiro pega um pedido reservado. Se o escolhido está ocupado, a reserva espera ele terminar o pedido atual; não interrompe o que ele está fazendo. Uma ordem nova para o mesmo cozinheiro substitui a anterior. Cozinheiro sem ordem pega sozinho o pedido mais antigo que não está reservado. Se o cliente for embora antes, a reserva some e o pedido conta como perdido.
+Usando uma estação (ou na fila dela), o avatar vai até ela e não anda até a etapa acabar. Na linha de baixo, uma dica diz o que fazer agora e mostra o resultado de cada comando por alguns segundos. A próxima estação do seu pedido brilha.
 
-**Feedback:** o cozinheiro selecionado tem contorno; o pedido reservado mostra o número do cozinheiro (`PedidoView.reservado_para`) até ser pego.
+### Modo sem jogador (`--demo-deadlock` e testes)
+
+Os cozinheiros são todos automáticos; valem só `P`, `D` e `Esc`. Os controles de reserva antigos (1–4 e clique para atribuir) saíram junto com o modo single player.
 
 ### Sair da partida (`Esc`, RF16)
 
@@ -34,27 +41,8 @@ Como o jogador coordena os cozinheiros, e o modo debug que mostra a concorrênci
 
 ## `entrada.py`
 
-```python
-@dataclass(frozen=True)
-class Selecionar: cozinheiro_id: int
-@dataclass(frozen=True)
-class Atribuir: pedido_id: int
-@dataclass(frozen=True)
-class AlternarPausa: ...
-@dataclass(frozen=True)
-class AlternarDebug: ...
-@dataclass(frozen=True)
-class PedirSaida: ...
-@dataclass(frozen=True)
-class Confirmar: ...      # Enter sem pedido no cursor (ex.: confirmar a saída)
-Acao = Selecionar | Atribuir | AlternarPausa | AlternarDebug | PedirSaida | Confirmar
-
-def traduzir(e: pygame.event.Event, retrato: Retrato,
-             cursor: int | None, cartoes: Mapping[int, pygame.Rect]) -> tuple[Acao | None, int | None]: ...
-```
-
-- Função pura: recebe o evento, o retrato atual, o cursor e os retângulos dos cartões de pedido (calculados pelo `layout.py`), e devolve a ação e o novo cursor. A `TelaJogo` executa a ação no `Jogo` e cuida da caixa de confirmação. Assim dá para testar os controles sem janela.
-- **O cursor é um `pedido_id`, não um índice.** A lista de pedidos muda a cada quadro; índice apontaria para outro pedido ou para fora da lista. `←`/`→` movem para o pedido anterior/seguinte **da fila** (só os AGUARDANDO, que são os que podem receber ordem; os em preparo ficam na linha de baixo). Se o pedido do cursor sumiu, o cursor vai para o pedido mais próximo ou vira `None`.
+- `traduzir(e, cartoes) -> Acao | None`: função pura de evento → ação (`Interagir`, `Desistir`, `ClicarComanda(id)`, `AlternarPausa`, `AlternarDebug`, `PedirSaida`, `Confirmar`).
+- `direcao(teclas) -> (dx, dy)`: WASD/setas seguradas, lidas a cada quadro (o movimento não é evento).
 
 ## Modo debug (RF19), para a apresentação
 

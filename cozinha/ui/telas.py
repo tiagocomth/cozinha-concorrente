@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from typing import Protocol
 
 import pygame
@@ -14,9 +15,10 @@ import pygame
 from cozinha.config import Config
 from cozinha.jogo import Jogo
 from cozinha.modelo.retrato import Retrato
-from cozinha.modelo.tipos import EstadoPartida
+from cozinha.modelo.tipos import EstadoCozinheiro, EstadoPartida
 from cozinha.ui import desenho, entrada, layout
-from cozinha.ui.animacao import Animacao
+from cozinha.ui.animacao import Animacao, alvo, mover
+from cozinha.ui.avatar import Avatar
 
 log = logging.getLogger(__name__)
 SAIR = object()   # sentinela: fechar o programa
@@ -79,22 +81,36 @@ class TelaInicio:
 
 
 class TelaJogo:
-    def __init__(self, config: Config, jogo: Jogo | None = None) -> None:
+    def __init__(self, config: Config, jogo: Jogo | None = None,
+                 teclas: Callable[[], entrada.Teclado] = pygame.key.get_pressed) -> None:
         self.config = config
         self.jogo = jogo if jogo is not None else Jogo(config)
         self.jogo.iniciar()
         self.fps = 0.0                      # o rodar atualiza com clock.get_fps()
+        self._teclas = teclas
         self._fontes = layout.fontes()
         self._animacao = Animacao()
         self._retrato: Retrato = self.jogo.retrato()
         self._animacao.atualizar(self._retrato, 0.0)
+        self.mapa = layout.mapa_estacoes(self._retrato.grupos)   # capacidades não mudam
+        self.avatar: Avatar | None = Avatar(layout.INICIO_JOGADOR) if config.jogador else None
         self._fechada = False
         self.debug = False
         self.confirmando = False            # caixa "Sair da partida?" aberta
         self._pausada_antes = False         # estava pausada (P) antes de abrir a caixa
-        self.cursor: int | None = None      # pedido_id escolhido pelas setas
+        self._t = 0.0                       # relógio da animação (brilho pulsando)
+        self.aviso = ""                     # mensagem curta na linha de dica
+        self._aviso_ate = 0.0
+        self._ultima_mensagem: str | None = None
 
     # ---------- eventos ----------
+
+    def _avisar(self, texto: str) -> None:
+        self.aviso = texto
+        self._aviso_ate = self._t + layout.AVISO_SEGUNDOS
+
+    def _perto(self):
+        return self.avatar.perto(self.mapa) if self.avatar is not None else None
 
     def evento(self, e: pygame.event.Event) -> Tela | object | None:
         if e.type == pygame.WINDOWFOCUSLOST:
@@ -102,16 +118,25 @@ class TelaJogo:
             return None
         if self.confirmando:
             return self._evento_confirmacao(e)
-        # O retrato desenhado, não um novo: entre o quadro e o clique a fila pode andar,
-        # e o clique tem que valer para o cartão que o jogador viu.
+        # O retrato desenhado, não um novo: o clique vale para a comanda que o jogador viu.
         r = self._retrato
-        cartoes = layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila)
-        acao, self.cursor = entrada.traduzir(e, r, self.cursor, cartoes)
+        acao = entrada.traduzir(e, layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila))
         match acao:
-            case entrada.Selecionar(cozinheiro_id=cid):
-                self.jogo.selecionar(cid)
-            case entrada.Atribuir(pedido_id=pid):
-                self.jogo.atribuir(pid)
+            case entrada.Interagir() if self.avatar is not None:
+                perto = self._perto()
+                if perto == "quadro":
+                    self.jogo.pegar_pedido()
+                elif perto is not None:
+                    self.jogo.usar_estacao(perto)
+                else:
+                    self._avisar("Chegue perto de uma estação ou do quadro de pedidos")
+            case entrada.Desistir():
+                self.jogo.desistir()
+            case entrada.ClicarComanda(pedido_id=pid) if self.avatar is not None:
+                if self._perto() == "quadro":
+                    self.jogo.pegar_pedido(pid)
+                else:
+                    self._avisar("Vá até o quadro de PEDIDOS para pegar uma comanda")
             case entrada.AlternarPausa():
                 self._alternar_pausa()
             case entrada.AlternarDebug():
@@ -151,12 +176,28 @@ class TelaJogo:
     def atualizar(self, dt: float) -> None:
         # Um RuntimeError aqui (thread morreu) sobe até o rodar, que encerra tudo (spec 07).
         self.jogo.atualizar()
-        self._retrato = self.jogo.retrato()          # um retrato por quadro (RC06)
-        self._animacao.atualizar(self._retrato, dt)
+        self._retrato = r = self.jogo.retrato()      # um retrato por quadro (RC06)
+        self._animacao.atualizar(r, dt)
+        self._t += dt
+        if self.avatar is None or r.estado is not EstadoPartida.RODANDO:
+            return
+        eu = r.cozinheiros[0]
+        if eu.mensagem and eu.mensagem != self._ultima_mensagem:
+            self._ultima_mensagem = eu.mensagem
+            self._avisar(eu.mensagem)
+        if eu.estado in (EstadoCozinheiro.ESPERANDO, EstadoCozinheiro.TRABALHANDO):
+            # Ocupado numa estação (ou na fila dela): o avatar vai até lá e não obedece às teclas.
+            self.avatar.pos = mover(self.avatar.pos, alvo(eu, r, self.mapa),
+                                    layout.VELOCIDADE_JOGADOR, dt)
+        else:
+            self.avatar.andar(entrada.direcao(self._teclas()), dt, self.mapa)
 
     def desenhar(self, sup: pygame.Surface) -> None:
         r = self._retrato
-        desenho.desenhar_retrato(sup, r, self._animacao.posicoes, self._fontes, self.cursor)
+        aviso = self.aviso if self._t < self._aviso_ate else None
+        desenho.desenhar_retrato(sup, r, self._animacao.posicoes, self._fontes,
+                                 jogador_pos=self.avatar.pos if self.avatar else None,
+                                 perto=self._perto(), t=self._t, dica=aviso)
         if self.debug:
             desenho.desenhar_debug(sup, r, self._fontes, self.fps, threading.active_count())
         if self.confirmando:
