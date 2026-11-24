@@ -570,3 +570,12 @@ def desenhar_seletor_nivel(sup: pygame.Surface, f: Fontes, niveis: tuple[str, ..
         _texto(sup, f.media, nivel, caixa.center, layout.TINTA, centro=True)
     _texto(sup, f.pequena, "<  setas  >", (centro[0], centro[1] + 26), layout.TINTA_FRACA,
            centro=True)
+
+
+def desenhar_contagem(sup: pygame.Surface, f: Fontes, texto: str) -> None:
+    """3, 2, 1, Já! grande no meio da cozinha, num círculo."""
+    centro = layout.PISO.center
+    pygame.draw.circle(sup, layout.SOMBRA_ESCURA, (centro[0] + 4, centro[1] + 5), layout.CONTAGEM_RAIO)
+    pygame.draw.circle(sup, layout.BRILHO, centro, layout.CONTAGEM_RAIO)
+    pygame.draw.circle(sup, layout.TINTA, centro, layout.CONTAGEM_RAIO, 4)
+    _texto(sup, f.grande, texto, centro, layout.TINTA, centro=True)

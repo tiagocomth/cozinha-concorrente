@@ -126,6 +126,10 @@ BALANCO_VELOCIDADE = 12.0
 TREMOR = 2                    # pixels que a comanda treme com o cliente impaciente
 VAPOR_ALTURA = 18
 VAPOR: Cor = (236, 236, 240)
+CONTAGEM_SEGUNDOS = 3.0
+JA_SEGUNDOS = 0.7
+CONTAGEM_RAIO = 70
+FADE_SEGUNDOS = 0.25
 AVISO_SEGUNDOS = 2.5          # quanto tempo uma mensagem fica na linha de dica
 
 # Debug e confirmação

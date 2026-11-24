@@ -29,6 +29,8 @@ def test_inicio_enter_comeca(telas_abertas):
     proxima = TelaInicio(config_rapida()).evento(tecla(pygame.K_RETURN))
     assert isinstance(proxima, TelaJogo)
     telas_abertas.append(proxima)
+    for _ in range(round(proxima.contagem * 60) + 5):     # passa a contagem 3, 2, 1, Já!
+        proxima.atualizar(1 / 60)
     assert proxima.jogo.retrato().estado is EstadoPartida.RODANDO
 
 
@@ -325,3 +327,51 @@ def test_jogar_de_novo_mantem_nivel(telas_abertas):
 def Retrato_exemplo():
     from cozinha.modelo.retrato import Retrato
     return Retrato.exemplo()
+
+
+# ---------- contagem ----------
+
+def _vivos(t: TelaJogo) -> list[str]:
+    return [th.name for th in [t.jogo._gerador, *t.jogo._cozinheiros] if th.is_alive()]
+
+
+def test_contagem_inicia_depois(telas_abertas, tela):
+    t = TelaJogo(config_rapida(duracao_partida=30), contagem=0.5)
+    telas_abertas.append(t)
+    for _ in range(10):                      # 1/6 s
+        t.atualizar(1 / 60)
+    t.desenhar(tela)
+    assert _vivos(t) == []
+    assert t.jogo.retrato().estado is EstadoPartida.PRONTA
+    for _ in range(30):
+        t.atualizar(1 / 60)
+    assert t.jogo.retrato().estado is EstadoPartida.RODANDO
+    assert _vivos(t)
+
+
+def test_fechar_na_contagem(tela):
+    t = TelaJogo(config_rapida(), contagem=3.0)
+    t.atualizar(1 / 60)
+    t.fechar()
+    assert _vivos(t) == []
+
+
+def test_teclas_na_contagem(telas_abertas):
+    t = TelaJogo(config_rapida(jogador=True, duracao_partida=30), contagem=3.0)
+    telas_abertas.append(t)
+    t.evento(tecla(pygame.K_p))
+    t.evento(tecla(pygame.K_e))
+    t.atualizar(1 / 60)
+    assert t.jogo.retrato().estado is EstadoPartida.PRONTA
+    t.evento(tecla(pygame.K_ESCAPE))
+    assert t.confirmando
+    proxima = t.evento(tecla(pygame.K_RETURN))
+    assert isinstance(proxima, TelaInicio)
+    assert _vivos(t) == []
+
+
+def test_inicio_passa_contagem(telas_abertas):
+    from cozinha.config import Config
+    jogo = TelaInicio(Config.single_player()).evento(tecla(pygame.K_RETURN))
+    telas_abertas.append(jogo)
+    assert jogo.contagem > 0

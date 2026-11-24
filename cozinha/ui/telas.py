@@ -6,6 +6,7 @@ Só a thread principal chama estes métodos (RC06).
 from __future__ import annotations
 
 import logging
+import math
 import threading
 from collections.abc import Callable
 from typing import Protocol
@@ -68,7 +69,7 @@ class TelaInicio:
         if e.type != pygame.KEYDOWN:
             return None
         if e.key in ENTER:
-            return TelaJogo(self._config_escolhida())
+            return TelaJogo(self._config_escolhida(), contagem=layout.CONTAGEM_SEGUNDOS)
         if e.key == pygame.K_ESCAPE:
             return SAIR
         if self.config.jogador and e.key in (pygame.K_LEFT, pygame.K_RIGHT):
@@ -105,10 +106,15 @@ class TelaInicio:
 
 class TelaJogo:
     def __init__(self, config: Config, jogo: Jogo | None = None,
-                 teclas: Callable[[], entrada.Teclado] = pygame.key.get_pressed) -> None:
+                 teclas: Callable[[], entrada.Teclado] = pygame.key.get_pressed,
+                 contagem: float = 0.0) -> None:
         self.config = config
         self.jogo = jogo if jogo is not None else Jogo(config)
-        self.jogo.iniciar()
+        # "3, 2, 1, Já!": as threads só sobem quando a contagem zera.
+        self.contagem = contagem
+        self._ja_ate = 0.0
+        if contagem <= 0:
+            self.jogo.iniciar()
         self.fps = 0.0                      # o rodar atualiza com clock.get_fps()
         self._teclas = teclas
         self._fontes = layout.fontes()
@@ -143,6 +149,11 @@ class TelaJogo:
             return None
         if self.confirmando:
             return self._evento_confirmacao(e)
+        if self.contagem > 0:                # na contagem, só Esc (sair) vale
+            if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
+                self._pausada_antes = True
+                self.confirmando = True
+            return None
         # O retrato desenhado, não um novo: o clique vale para a comanda que o jogador viu.
         r = self._retrato
         acao = entrada.traduzir(e, layout.cartoes_pedidos(r.pedidos, r.tamanho_max_fila))
@@ -199,6 +210,12 @@ class TelaJogo:
     # ---------- quadro ----------
 
     def atualizar(self, dt: float) -> None:
+        if self.contagem > 0 and not self.confirmando:
+            self.contagem -= dt
+            if self.contagem <= 0:
+                self.contagem = 0.0
+                self.jogo.iniciar()
+                self._ja_ate = self._t + layout.JA_SEGUNDOS
         # Um RuntimeError aqui (thread morreu) sobe até o rodar, que encerra tudo (spec 07).
         self.jogo.atualizar()
         anterior, self._retrato = self._retrato, self.jogo.retrato()   # um por quadro (RC06)
@@ -233,6 +250,10 @@ class TelaJogo:
                                  perto=self._perto(), t=self._t, dica=aviso,
                                  efeitos=self._efeitos.ativos, pulso=self._efeitos.pulso_pontos,
                                  andando=self._andando)
+        if self.contagem > 0:
+            desenho.desenhar_contagem(sup, self._fontes, str(math.ceil(self.contagem)))
+        elif self._t < self._ja_ate:
+            desenho.desenhar_contagem(sup, self._fontes, "Já!")
         if self.debug:
             desenho.desenhar_debug(sup, r, self._fontes, self.fps, threading.active_count())
         if self.confirmando:
@@ -255,7 +276,7 @@ class TelaResultado:
 
     def evento(self, e: pygame.event.Event) -> Tela | object | None:
         if e.type == pygame.KEYDOWN and e.key in ENTER:
-            return TelaJogo(self.config)            # jogar de novo: Jogo novo
+            return TelaJogo(self.config, contagem=layout.CONTAGEM_SEGUNDOS)   # jogo novo
         if e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE:
             return SAIR
         return None

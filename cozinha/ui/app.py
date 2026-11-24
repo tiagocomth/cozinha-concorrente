@@ -14,6 +14,8 @@ def rodar(config: Config) -> None:
     superficie = pygame.display.set_mode(layout.JANELA)
     clock = pygame.time.Clock()
     atual: Tela = TelaInicio(config)
+    veu = pygame.Surface(layout.JANELA)              # preto, para o fade entre telas
+    fade = layout.FADE_SEGUNDOS
     try:
         while True:
             dt = clock.tick(config.fps) / 1000
@@ -30,10 +32,15 @@ def rodar(config: Config) -> None:
             if proxima is not None:
                 atual.fechar()
                 atual = proxima
+                fade = layout.FADE_SEGUNDOS           # a tela nova surge do escuro
                 continue
             if hasattr(atual, "fps"):
                 atual.fps = clock.get_fps()
             atual.desenhar(superficie)
+            if fade > 0:
+                veu.set_alpha(round(255 * fade / layout.FADE_SEGUNDOS))
+                superficie.blit(veu, (0, 0))
+                fade -= dt
             pygame.display.flip()
     finally:
         atual.fechar()                              # encerra as threads (RC07)
