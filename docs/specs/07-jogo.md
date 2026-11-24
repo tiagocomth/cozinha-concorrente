@@ -76,6 +76,16 @@ estacoes, grupos = cozinha.views()
 
 Todos chamados da thread da interface, com locks curtos. Não há fila de mensagens: a reserva já é a mensagem.
 
+### Single player (`config.jogador`)
+
+O cozinheiro 1 é um `CozinheiroJogador` (thread que executa comandos da tela); os outros são automáticos. Comandos, todos sem bloquear (vão para a fila de comandos do jogador):
+
+- `pegar_pedido(pedido_id=None)`: pega esse pedido, ou o mais antigo livre. Se outro levou antes, a `mensagem` do jogador avisa.
+- `usar_estacao(tipo)`: faz a etapa atual se `tipo` é uma das estações dela, pelo mesmo `ocupar_todas` dos automáticos (fila justa, ordem fixa).
+- `desistir()`: esperando estação, sai da fila e mantém o pedido; parado com pedido, descarta (perdido).
+
+Sem jogador, os três não fazem nada. O retrato marca o cozinheiro do jogador com `jogador=True`, a `proxima` etapa e a `mensagem`.
+
 ## Fora do escopo
 
 - Reiniciar o mesmo `Jogo`: "jogar de novo" cria um `Jogo` novo (spec 08).
