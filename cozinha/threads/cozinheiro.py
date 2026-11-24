@@ -43,6 +43,7 @@ class Cozinheiro(threading.Thread):
         self._esperando: TipoEstacao | None = None
         self._esperando_desde = 0.0
         self._espera_total = 0.0
+        self._indice = 0                     # etapa da receita em andamento
 
     # ---------- loop ----------
 
@@ -77,7 +78,8 @@ class Cozinheiro(threading.Thread):
                 continue
             with self._lock:
                 self._pedido = pedido
-            for etapa in pedido.receita.etapas:
+            for i, etapa in enumerate(pedido.receita.etapas):
+                self._mudar(indice=i)
                 if not self._fazer_etapa(pedido, etapa):
                     break
             self._mudar(estado=LIVRE, pedido=None, etapa=None, progresso=0.0)
@@ -187,8 +189,9 @@ class Cozinheiro(threading.Thread):
 
     def pedido_view(self, agora: float) -> PedidoView | None:
         with self._lock:
-            p = self._pedido
+            p, indice = self._pedido, self._indice
         if p is None or p.estado in (EstadoPedido.ENTREGUE, EstadoPedido.PERDIDO):
             return None
         return PedidoView(p.id, p.receita.nome, EstadoPedido.EM_PREPARO,
-                          p.paciencia_restante(agora), self.id, None)
+                          p.paciencia_restante(agora), self.id, None,
+                          tuple(e.estacoes for e in p.receita.etapas), indice)

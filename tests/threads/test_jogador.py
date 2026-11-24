@@ -246,3 +246,15 @@ def test_automatico_nao_pega_o_do_jogador(m):
     outro.start()
     esperar(lambda: p2.estado is EstadoPedido.ENTREGUE)
     assert p1.cozinheiro_id == 1 and p1.estado is EstadoPedido.EM_PREPARO
+
+
+def test_pedido_view_etapa_atual(m):
+    x = m()
+    p = x.pedir(sopa())
+    x.j.start()
+    x.j.comandar(PegarPedido())
+    esperar(lambda: x.j.view().pedido_id == p.id)
+    assert x.j.pedido_view(x.relogio.agora()).etapa_atual == 0
+    x.fazer(TABUA)
+    v = x.j.pedido_view(x.relogio.agora())
+    assert v.etapa_atual == 1 and len(v.etapas) == 3

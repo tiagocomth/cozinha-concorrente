@@ -31,6 +31,33 @@ PACIENCIA_BAIXA: Cor = (235, 80, 70)
 LIMIAR_PACIENCIA_MEDIA = 0.5
 LIMIAR_PACIENCIA_BAIXA = 0.25
 VEU = (0, 0, 0, 160)
+# Cozinha
+PISO_A: Cor = (232, 224, 208)
+PISO_B: Cor = (219, 209, 190)
+LADRILHO = 32
+PAREDE_COR: Cor = (78, 66, 58)
+MADEIRA: Cor = (168, 116, 70)
+MADEIRA_CLARA: Cor = (214, 170, 112)
+ACO: Cor = (176, 184, 194)
+ACO_ESCURO: Cor = (120, 128, 140)
+AGUA: Cor = (110, 170, 225)
+FOGAO_COR: Cor = (58, 60, 68)
+BOCA: Cor = (34, 34, 40)
+BOCA_ACESA: Cor = (255, 128, 36)
+PRATO: Cor = (250, 250, 246)
+CORTICA: Cor = (186, 140, 92)
+PAPEL: Cor = (255, 249, 232)
+PAPEL_JOGADOR: Cor = (255, 236, 170)
+TINTA: Cor = (52, 44, 40)
+TINTA_FRACA: Cor = (130, 118, 108)
+BRILHO: Cor = (255, 226, 80)
+BALAO: Cor = (255, 255, 255)
+CHAPEU: Cor = (252, 252, 252)
+SOMBRA: Cor = (190, 178, 158)
+CORES_ESTACAO = {TipoEstacao.TABUA: (196, 140, 80), TipoEstacao.PIA: (90, 160, 220),
+                 TipoEstacao.FOGAO: (230, 96, 52), TipoEstacao.BALCAO: (150, 110, 190)}
+LETRAS_ESTACAO = {TipoEstacao.TABUA: "T", TipoEstacao.PIA: "P",
+                  TipoEstacao.FOGAO: "F", TipoEstacao.BALCAO: "B"}
 CORES_COZINHEIROS: tuple[Cor, ...] = (
     (80, 160, 255), (255, 140, 60), (180, 110, 255), (60, 210, 190), (255, 105, 180),
 )
@@ -58,19 +85,21 @@ PISO = COZINHA.inflate(-2 * PAREDE, -2 * PAREDE)
 DICA_Y = COZINHA.bottom + 6
 
 # Estações: as de bancada na parede de cima; o balcão na parede direita; o quadro na esquerda
-ESTACAO_TAMANHO = (112, 72)
+ESTACAO_TAMANHO = (112, 80)
+FAIXA_NOME = 16             # faixa escura na base da estação, com o nome
 ESTACOES_X0 = 180
 ESTACAO_ESPACO = 18
 GRUPO_ESPACO = 46
 BALCAO_LARGURA = 84
-BALCAO_Y = 300
+BALCAO_Y = 290
 VAGA_TAMANHO = (44, 44)
-VAGA_ESPACO = 14
+VAGA_ESPACO = 30
 QUADRO = pygame.Rect(PISO.left, 300, 70, 130)
 AREA_INTERACAO = 56           # faixa em frente a cada estação onde o E funciona
 FRENTE = 24                   # onde o cozinheiro fica para usar a estação
 ESPERA_INICIO = 70            # da estação ao primeiro da fila de espera
 ESPERA_DISTANCIA = 34
+ESPERA_BALCAO = 110            # do balcão ao primeiro da fila (à esquerda, longe de quem usa)
 
 # Cozinheiros
 COZINHEIRO_RAIO = 16
@@ -158,7 +187,7 @@ class MapaEstacoes:
     def posicao_espera(self, tipo: TipoEstacao, ordem: int) -> Ponto:
         g = self.grupos[tipo]
         if tipo is TipoEstacao.BALCAO:
-            return float(g.left - ESPERA_INICIO - ordem * ESPERA_DISTANCIA), float(g.centery)
+            return float(g.left - ESPERA_BALCAO - ordem * ESPERA_DISTANCIA), float(g.centery)
         return float(g.centerx), float(g.bottom + ESPERA_INICIO + ordem * ESPERA_DISTANCIA)
 
 
@@ -201,3 +230,24 @@ def mapa_estacoes(grupos: Sequence[GrupoView]) -> MapaEstacoes:
 
 def posicao_descanso(cozinheiro_id: int) -> Ponto:
     return float(DESCANSO_X0 + (cozinheiro_id - 1) * DESCANSO_ESPACO), float(DESCANSO_Y)
+
+
+def icones_comanda(rect: pygame.Rect, n: int) -> list[pygame.Rect]:
+    """Um quadradinho por etapa, em fila, na comanda."""
+    passo = ICONE_ETAPA + 8
+    y = rect.top + 34
+    return [pygame.Rect(rect.left + 10 + i * passo, y, ICONE_ETAPA, ICONE_ETAPA) for i in range(n)]
+
+
+def corpo_estacao(rect: pygame.Rect) -> pygame.Rect:
+    """A parte da estação acima da faixa do nome, onde fica o desenho do objeto."""
+    return pygame.Rect(rect.left, rect.top, rect.width, rect.height - FAIXA_NOME)
+
+
+def bocas_fogao(rect: pygame.Rect) -> list[tuple[tuple[int, int], int]]:
+    """Centro e raio das 4 bocas do fogão."""
+    rect = corpo_estacao(rect)
+    raio = min(rect.width, rect.height) // 6
+    xs = (rect.left + rect.width // 4, rect.right - rect.width // 4)
+    ys = (rect.top + rect.height // 3, rect.bottom - rect.height // 4)
+    return [((x, y), raio) for y in ys for x in xs]

@@ -19,7 +19,9 @@ def _descanso(retrato: Retrato) -> dict[int, tuple[float, float]]:
 def test_desenhar_exemplo(tela):
     tela.fill(layout.FUNDO)
     r = Retrato.exemplo()
-    desenho.desenhar_retrato(tela, r, _descanso(r), layout.fontes(), cursor=5)
+    desenho.desenhar_retrato(tela, r, _descanso(r), layout.fontes(),
+                             jogador_pos=layout.INICIO_JOGADOR, perto=TipoEstacao.TABUA, t=0.4,
+                             dica="Leve o pedido para a TÁBUA")
     cores = {tela.get_at((x, y))[:3] for x in range(0, 1280, 40) for y in range(0, 720, 40)}
     assert cores != {layout.FUNDO}
 
@@ -85,12 +87,12 @@ def test_desempenho(tela):
     assert time.monotonic() - inicio < 10
 
 
-def test_cozinheiro_visivel_sobre_a_propria_estacao(tela):
-    """O círculo tem a cor do cozinheiro, igual à da estação que ele ocupa: precisa de contorno."""
-    c = Retrato.exemplo().cozinheiros[0]
+def test_cozinheiro_visivel_sobre_a_propria_cor(tela):
+    """O corpo tem a cor do cozinheiro: precisa de contorno para não sumir num fundo igual."""
+    c = Retrato.exemplo().cozinheiros[1]
     cor = layout.cor_cozinheiro(c.id)
     tela.fill(cor)
-    desenho.desenhar_cozinheiro(tela, c, (200, 200), layout.fontes())
+    desenho.desenhar_chef(tela, c, (200, 200), layout.fontes(), jogador=False)
     borda = tela.get_at((200 + layout.COZINHEIRO_RAIO + 1, 200))[:3]
     assert borda != cor
 
@@ -102,3 +104,42 @@ def test_hud_com_limite_de_perdidos_alto(tela):
     desenho.desenhar_hud(tela, r, layout.fontes())
     esquerda = {tela.get_at((x, y))[:3] for x in range(0, 400) for y in range(10, 46)}
     assert layout.LIVRE not in esquerda
+
+
+def _pintados(tela, caixa: pygame.Rect, fundo) -> int:
+    return sum(1 for x in range(caixa.left, caixa.right) for y in range(caixa.top, caixa.bottom)
+               if tela.get_at((x, y))[:3] != fundo)
+
+
+def test_fogao_aceso(tela):
+    rect = pygame.Rect(100, 100, *layout.ESTACAO_TAMANHO)
+    centro, _ = layout.bocas_fogao(rect)[0]
+    desenho.desenhar_fogao(tela, rect, aceso=False)
+    apagado = tela.get_at(centro)[:3]
+    desenho.desenhar_fogao(tela, rect, aceso=True)
+    assert tela.get_at(centro)[:3] != apagado
+
+
+def test_chef_jogador_maior(tela):
+    r = Retrato.exemplo()
+    fundo = (0, 0, 0)
+    caixa = pygame.Rect(150, 130, 100, 100)
+    tela.fill(fundo)
+    desenho.desenhar_chef(tela, r.cozinheiros[1], (200, 190), layout.fontes(), jogador=False)
+    automatico = _pintados(tela, caixa, fundo)
+    tela.fill(fundo)
+    desenho.desenhar_chef(tela, r.cozinheiros[0], (200, 190), layout.fontes(), jogador=True)
+    assert _pintados(tela, caixa, fundo) > automatico
+
+
+def test_comanda_mostra_etapas(tela):
+    T, P, F, B = TipoEstacao
+    sopa = PedidoView(7, "Sopa", EstadoPedido.AGUARDANDO, 0.8, None, None, ((T,), (F,), (F, B)), 0)
+    rect = pygame.Rect(40, 60, *layout.CARTAO_TAMANHO)
+    tela.fill((0, 0, 0))
+    desenho.desenhar_comanda(tela, sopa, rect, layout.fontes(), do_jogador=False)
+    icones = layout.icones_comanda(rect, 3)
+    assert len(icones) == 3
+    for icone in icones:
+        assert rect.contains(icone)
+        assert tela.get_at(icone.center)[:3] != layout.PAPEL

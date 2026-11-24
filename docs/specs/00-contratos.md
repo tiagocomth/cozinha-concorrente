@@ -185,6 +185,8 @@ class PedidoView:
     paciencia: float                   # fração 0..1
     cozinheiro_id: int | None          # quem está preparando
     reservado_para: int | None         # ordem do jogador ainda não cumprida (spec 03)
+    etapas: tuple[tuple[TipoEstacao, ...], ...] = ()   # estações de cada etapa (comandas)
+    etapa_atual: int = 0               # índice da etapa que falta fazer
 
 @dataclass(frozen=True)
 class CozinheiroView:

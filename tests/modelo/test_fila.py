@@ -213,3 +213,13 @@ def test_views():
         1, EstadoPedido.AGUARDANDO, 1.0, None, None)
     assert (v2.id, v2.reservado_para) == (2, 3)
     assert v1.receita == "teste"
+
+
+def test_pedido_view_etapas():
+    from cozinha.modelo.receita import RECEITAS
+    T, P, F, B = TipoEstacao
+    fila = FilaDePedidos(6)
+    fila.colocar(lambda: Pedido(1, RECEITAS[1], 0.0), 0.05)       # Sopa
+    (v,) = fila.views(0)
+    assert v.etapas == ((T,), (F,), (F, B))
+    assert v.etapa_atual == 0

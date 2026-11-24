@@ -94,7 +94,8 @@ class FilaDePedidos:
         with self._mutex:
             return tuple(sorted(
                 (PedidoView(p.id, p.receita.nome, EstadoPedido.AGUARDANDO,
-                            p.paciencia_restante(agora), None, self._reservas.get(p.id))
+                            p.paciencia_restante(agora), None, self._reservas.get(p.id),
+                            tuple(e.estacoes for e in p.receita.etapas), 0)
                  for p in self._pedidos),
                 key=lambda v: v.id))
 
