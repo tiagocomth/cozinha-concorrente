@@ -90,11 +90,18 @@ class FilaDePedidos:
             self._vagas.release()
         return vencidos
 
+    def tem_pedido_livre(self, cozinheiro_id: int, agora: float, idade_minima: float) -> bool:
+        """Há pedido que este cozinheiro pode pegar e que está na fila há `idade_minima` s?"""
+        with self._mutex:
+            return any(self._reservas.get(p.id, cozinheiro_id) == cozinheiro_id
+                       and agora - p.criado_em >= idade_minima for p in self._pedidos)
+
     def views(self, agora: float) -> tuple[PedidoView, ...]:
         with self._mutex:
             return tuple(sorted(
                 (PedidoView(p.id, p.receita.nome, EstadoPedido.AGUARDANDO,
-                            p.paciencia_restante(agora), None, self._reservas.get(p.id))
+                            p.paciencia_restante(agora), None, self._reservas.get(p.id),
+                            tuple(e.estacoes for e in p.receita.etapas), 0)
                  for p in self._pedidos),
                 key=lambda v: v.id))
 

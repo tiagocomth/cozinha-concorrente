@@ -76,3 +76,11 @@ def test_single_player():
     c.validar_para_jogo()
     assert Config().jogador is False
     assert Config.demo_deadlock().jogador is False
+
+
+def test_atraso_automaticos():
+    assert Config().atraso_automaticos == 0
+    assert Config.single_player().atraso_automaticos > 0
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        Config(atraso_automaticos=-1)

@@ -23,8 +23,9 @@ log = logging.getLogger(__name__)
 class Cozinheiro(threading.Thread):
     def __init__(self, id: int, fila: FilaDePedidos, cozinha: Cozinha,
                  pontuacao: Pontuacao, relogio: Relogio, config: Config,
-                 parar: Event) -> None:
+                 parar: Event, jogador_livre: Callable[[], bool] | None = None) -> None:
         super().__init__(name=f"cozinheiro-{id}", daemon=True)
+        self._jogador_livre = jogador_livre   # single player: o jogador está sem pedido?
         self.id = id
         self._fila = fila
         self._cozinha = cozinha
@@ -43,6 +44,7 @@ class Cozinheiro(threading.Thread):
         self._esperando: TipoEstacao | None = None
         self._esperando_desde = 0.0
         self._espera_total = 0.0
+        self._indice = 0                     # etapa da receita em andamento
 
     # ---------- loop ----------
 
@@ -71,16 +73,29 @@ class Cozinheiro(threading.Thread):
             self._relogio.esperar_rodando(self._parar, tick)
             if self._parar.is_set():
                 break
+            if not self._tem_pedido_maduro():
+                self._parar.wait(tick)
+                continue
             pedido = self._fila.retirar(self.id, timeout=tick)
             if pedido is None:
                 self._parar.wait(tick)
                 continue
             with self._lock:
                 self._pedido = pedido
-            for etapa in pedido.receita.etapas:
+            for i, etapa in enumerate(pedido.receita.etapas):
+                self._mudar(indice=i)
                 if not self._fazer_etapa(pedido, etapa):
                     break
             self._mudar(estado=LIVRE, pedido=None, etapa=None, progresso=0.0)
+
+    def _tem_pedido_maduro(self) -> bool:
+        """Single player: só pega um pedido que já está no quadro há `atraso_automaticos`
+        segundos, para o jogador ter a chance de pegá-lo antes."""
+        atraso = self._config.atraso_automaticos
+        # Só vale enquanto o jogador está livre para pegar: ocupado, os colegas pegam na hora.
+        if atraso <= 0 or self._jogador_livre is None or not self._jogador_livre():
+            return True
+        return self._fila.tem_pedido_livre(self.id, self._relogio.agora(), atraso)
 
     def _expirou(self, pedido: Pedido) -> bool:
         return self._config.expiracao and pedido.expirou(self._relogio.agora())
@@ -187,8 +202,9 @@ class Cozinheiro(threading.Thread):
 
     def pedido_view(self, agora: float) -> PedidoView | None:
         with self._lock:
-            p = self._pedido
+            p, indice = self._pedido, self._indice
         if p is None or p.estado in (EstadoPedido.ENTREGUE, EstadoPedido.PERDIDO):
             return None
         return PedidoView(p.id, p.receita.nome, EstadoPedido.EM_PREPARO,
-                          p.paciencia_restante(agora), self.id, None)
+                          p.paciencia_restante(agora), self.id, None,
+                          tuple(e.estacoes for e in p.receita.etapas), indice)

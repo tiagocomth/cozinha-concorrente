@@ -1,70 +1,60 @@
 from __future__ import annotations
 
-from dataclasses import replace
-
 import pygame
+import pytest
 
 from cozinha.modelo.retrato import Retrato
 from cozinha.ui import layout
-from cozinha.ui.entrada import (AlternarDebug, AlternarPausa, Atribuir, Confirmar, PedirSaida,
-                                Selecionar, traduzir)
+from cozinha.ui.entrada import (AlternarDebug, AlternarPausa, ClicarComanda, Confirmar, Desistir,
+                                Interagir, PedirSaida, direcao, traduzir)
 
 from .conftest import tecla
 
-R = Retrato.exemplo()                       # pedidos 1..6
+R = Retrato.exemplo()
 CARTOES = layout.cartoes_pedidos(R.pedidos, R.tamanho_max_fila)
 
 
-def _t(key: int, cursor: int | None = None, retrato: Retrato = R):
-    return traduzir(tecla(key), retrato, cursor, CARTOES)
+class Teclas:
+    def __init__(self, *apertadas: int) -> None:
+        self.apertadas = set(apertadas)
+
+    def __getitem__(self, k: int) -> bool:
+        return k in self.apertadas
 
 
-def _clique(pos: tuple[int, int], botao: int = 1):
-    e = pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=botao)
-    return traduzir(e, R, None, CARTOES)
+def _clique(pos, botao: int = 1):
+    return traduzir(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=pos, button=botao), CARTOES)
 
 
-def test_teclas():
-    for n in range(1, 5):
-        assert _t(getattr(pygame, f"K_{n}")) == (Selecionar(n), None)
-    assert _t(pygame.K_p) == (AlternarPausa(), None)
-    assert _t(pygame.K_d) == (AlternarDebug(), None)
-    assert _t(pygame.K_ESCAPE) == (PedirSaida(), None)
-    assert _t(pygame.K_z, cursor=3) == (None, 3)
+def test_traduzir_teclas():
+    assert traduzir(tecla(pygame.K_e), CARTOES) == Interagir()
+    assert traduzir(tecla(pygame.K_SPACE), CARTOES) == Interagir()
+    assert traduzir(tecla(pygame.K_q), CARTOES) == Desistir()
+    assert traduzir(tecla(pygame.K_p), CARTOES) == AlternarPausa()
+    assert traduzir(tecla(pygame.K_d), CARTOES) == AlternarDebug()
+    assert traduzir(tecla(pygame.K_ESCAPE), CARTOES) == PedirSaida()
+    assert traduzir(tecla(pygame.K_RETURN), CARTOES) == Confirmar()
+    assert traduzir(tecla(pygame.K_z), CARTOES) is None
 
 
-def test_clique():
-    assert _clique(CARTOES[6].center) == (Atribuir(6), None)
-    assert _clique((5, 700)) == (None, None)
-    assert _clique(CARTOES[6].center, botao=3) == (None, None)
+def test_traduzir_clique():
+    assert _clique(CARTOES[6].center) == ClicarComanda(6)
+    assert _clique((5, 700)) is None
+    assert _clique(CARTOES[6].center, botao=3) is None
 
 
-def test_cursor_setas():
-    """No exemplo, 1-4 estão em preparo e só 5 e 6 estão na fila: o cursor só passa por eles."""
-    assert _t(pygame.K_RIGHT) == (None, 5)
-    assert _t(pygame.K_LEFT) == (None, 5)
-    assert _t(pygame.K_RIGHT, cursor=5) == (None, 6)
-    assert _t(pygame.K_LEFT, cursor=6) == (None, 5)
-    assert _t(pygame.K_LEFT, cursor=5) == (None, 5)
-    assert _t(pygame.K_RIGHT, cursor=6) == (None, 6)
-
-
-def test_enter_atribui():
-    assert _t(pygame.K_RETURN, cursor=5) == (Atribuir(5), 5)
-    assert _t(pygame.K_KP_ENTER, cursor=5) == (Atribuir(5), 5)
-    assert _t(pygame.K_RETURN) == (Confirmar(), None)
-
-
-def test_enter_em_pedido_em_preparo_nao_atribui():
-    acao, cursor = _t(pygame.K_RETURN, cursor=2)
-    assert acao == Confirmar() and cursor in (5, 6)
-
-
-def test_cursor_some():
-    acao, cursor = _t(pygame.K_RIGHT, cursor=9)
-    assert acao is None and cursor in (5, 6)
-    sem_fila = replace(R, pedidos=tuple(p for p in R.pedidos if p.id <= 4))
-    assert _t(pygame.K_RIGHT, cursor=5, retrato=sem_fila) == (None, None)
-    vazio = replace(R, pedidos=())
-    assert _t(pygame.K_RIGHT, cursor=3, retrato=vazio) == (None, None)
-    assert _t(pygame.K_RETURN, cursor=3, retrato=vazio) == (Confirmar(), None)
+@pytest.mark.parametrize("teclas,esperado", [
+    ((), (0, 0)),
+    ((pygame.K_d,), (1, 0)),
+    ((pygame.K_RIGHT,), (1, 0)),
+    ((pygame.K_a,), (-1, 0)),
+    ((pygame.K_LEFT,), (-1, 0)),
+    ((pygame.K_w,), (0, -1)),
+    ((pygame.K_UP,), (0, -1)),
+    ((pygame.K_s,), (0, 1)),
+    ((pygame.K_DOWN,), (0, 1)),
+    ((pygame.K_w, pygame.K_d), (1, -1)),
+    ((pygame.K_a, pygame.K_d), (0, 0)),
+])
+def test_direcao(teclas, esperado):
+    assert direcao(Teclas(*teclas)) == esperado

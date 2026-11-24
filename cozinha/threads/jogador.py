@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import queue
 import threading
+import time
 from dataclasses import dataclass, replace
 from threading import Event
 
@@ -39,6 +40,7 @@ class UsarEstacao:
 @dataclass(frozen=True)
 class Desistir:
     """Na fila de uma estação: sai da fila (o pedido continua na mão). Parado: descarta."""
+    quando: float = 0.0               # preenchido pelo comandar (time.monotonic)
 
 
 Comando = PegarPedido | UsarEstacao | Desistir
@@ -57,17 +59,37 @@ class CozinheiroJogador(Cozinheiro):
         self._desistir = threading.Event()   # lido pelo `cancelar` enquanto espera estação
         self._indice = 0                     # etapa da receita que falta fazer
         self._mensagem: str | None = None
+        self._usar_inicio = -1.0             # quando o último UsarEstacao começou e terminou
+        self._usar_fim = -1.0                # (para ignorar um Q que era para ele)
 
     # ---------- entrada (thread da tela) ----------
 
     def comandar(self, comando: Comando) -> None:
-        """Não bloqueia. Desistir com o cozinheiro na fila de uma estação age na hora."""
+        """Não bloqueia. O `Desistir` (tecla Q) nunca joga fora um pedido sem querer:
+
+        - na fila de uma estação: sai da fila na hora (o pedido continua na mão);
+        - trabalhando numa etapa: ignorado (a etapa não se interrompe);
+        - com comandos ainda na fila (ex.: E e Q durante a pausa): cancela esses comandos;
+        - parado com pedido: descarta o pedido.
+        """
         if isinstance(comando, Desistir):
             with self._lock:
-                esperando = self._estado is ESPERANDO
-            if esperando:
+                estado = self._estado
+            if estado is TRABALHANDO:
+                return
+            if estado is ESPERANDO:
                 self._desistir.set()
                 return
+            cancelou = False
+            while True:
+                try:
+                    self._comandos.get_nowait()
+                    cancelou = True
+                except queue.Empty:
+                    break
+            if cancelou:
+                return
+            comando = Desistir(quando=time.monotonic())
         self._comandos.put_nowait(comando)
 
     # ---------- loop (esta thread) ----------
@@ -83,6 +105,7 @@ class CozinheiroJogador(Cozinheiro):
                 comando = self._comandos.get(timeout=tick)
             except queue.Empty:
                 continue
+            recebido = time.monotonic()      # um Q depois disto e antes do fim é para este comando
             self._relogio.esperar_rodando(self._parar, tick)   # comando chegou na pausa
             if self._parar.is_set():
                 break
@@ -91,8 +114,12 @@ class CozinheiroJogador(Cozinheiro):
                 case PegarPedido(pedido_id=pid):
                     self._pegar(pid)
                 case UsarEstacao(tipo=tipo):
+                    self._usar_inicio = recebido
                     self._usar(tipo)
-                case Desistir():
+                    self._usar_fim = time.monotonic()
+                case Desistir(quando=quando):
+                    if self._usar_inicio <= quando <= self._usar_fim:
+                        continue        # o Q era para a etapa que acabou de rodar, não descarte
                     self._descartar()
 
     def _vigiar_pedido(self) -> None:
@@ -174,6 +201,11 @@ class CozinheiroJogador(Cozinheiro):
         if pedido.estado is EstadoPedido.EM_PREPARO:
             self._pontuacao.registrar_perda(pedido)
         self._largar(f"Pedido #{pedido.id} descartado")
+
+    def livre(self) -> bool:
+        """Sem pedido na mão: os automáticos esperam `atraso_automaticos` por ele."""
+        with self._lock:
+            return self._pedido is None
 
     # ---------- estado para a tela ----------
 

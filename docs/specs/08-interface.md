@@ -63,6 +63,8 @@ def rodar(config: Config) -> None:
 
 ## Telas
 
+> **Atualização (single player, 2026-11-24):** a tela da partida virou uma cozinha vista de cima — piso de ladrilhos, bancadas na parede de cima (tábuas, pia, fogões), balcão na parede direita, quadro de pedidos na esquerda, comandas com a trilha de etapas no topo, chefs com chapéu e o avatar do jogador. Detalhes em `docs/superpowers/specs/2026-11-24-single-player-design.md`. O desenho abaixo é o da primeira versão.
+
 ### Início
 
 Nome do jogo, uma frase do objetivo, os controles (spec 09) e "Enter para começar · Esc para sair". Enter → cria `Jogo(config)`, `iniciar()`, vai para a TelaJogo.
