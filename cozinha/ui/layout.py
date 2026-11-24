@@ -156,12 +156,21 @@ def fontes() -> Fontes:
     if not pygame.font.get_init():
         pygame.font.init()
 
+    try:
+        # O SysFont não falha quando não acha a família: devolve a padrão no tamanho reduzido.
+        # Por isso conferimos antes se alguma das preferidas existe.
+        tem_sysfont = pygame.font.match_font(FONTES_PREFERIDAS, bold=True) is not None
+    except Exception:
+        tem_sysfont = False
+
     def fonte(tamanho: int) -> pygame.font.Font:
-        try:                          # arredondada do sistema, se houver
-            return pygame.font.SysFont(FONTES_PREFERIDAS, round(tamanho * ESCALA_SYSFONT),
-                                       bold=True)
-        except Exception:             # sem fontes do sistema: a padrão do pygame
-            return pygame.font.Font(None, tamanho)
+        if tem_sysfont:
+            try:                      # arredondada do sistema
+                return pygame.font.SysFont(FONTES_PREFERIDAS, round(tamanho * ESCALA_SYSFONT),
+                                           bold=True)
+            except Exception:
+                pass
+        return pygame.font.Font(None, tamanho)       # a padrão do pygame, no tamanho certo
 
     return Fontes(*(fonte(t) for t in FONTE_TAMANHOS))
 

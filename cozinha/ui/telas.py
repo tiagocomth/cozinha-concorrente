@@ -112,6 +112,7 @@ class TelaJogo:
         self.jogo = jogo if jogo is not None else Jogo(config)
         # "3, 2, 1, Já!": as threads só sobem quando a contagem zera.
         self.contagem = contagem
+        self._contagem_congelada = False    # janela sem foco: a contagem espera
         self._ja_ate = 0.0
         if contagem <= 0:
             self.jogo.iniciar()
@@ -145,7 +146,11 @@ class TelaJogo:
 
     def evento(self, e: pygame.event.Event) -> Tela | object | None:
         if e.type == pygame.WINDOWFOCUSLOST:
+            self._contagem_congelada = True  # na contagem, a partida nem começou: congela
             self.jogo.pausar()              # retomar é com P: o foco voltar não retoma
+            return None
+        if e.type == pygame.WINDOWFOCUSGAINED:
+            self._contagem_congelada = False
             return None
         if self.confirmando:
             return self._evento_confirmacao(e)
@@ -210,7 +215,7 @@ class TelaJogo:
     # ---------- quadro ----------
 
     def atualizar(self, dt: float) -> None:
-        if self.contagem > 0 and not self.confirmando:
+        if self.contagem > 0 and not self.confirmando and not self._contagem_congelada:
             self.contagem -= dt
             if self.contagem <= 0:
                 self.contagem = 0.0

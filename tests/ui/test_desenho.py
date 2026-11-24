@@ -201,3 +201,11 @@ def test_desenhar_com_efeitos(tela):
                layout.mapa_estacoes(r.grupos))
     desenho.desenhar_retrato(tela, r, _descanso(r), layout.fontes(), efeitos=e.ativos,
                              pulso=e.pulso_pontos, andando=frozenset({2}), t=0.3)
+
+
+def test_sem_fonte_do_sistema_usa_padrao_no_tamanho_certo(tela, monkeypatch):
+    """SysFont não levanta quando não acha a família: devolve a padrão já reduzida."""
+    monkeypatch.setattr(pygame.font, "match_font", lambda *a, **k: None)
+    f = layout.fontes()
+    esperado = pygame.font.Font(None, layout.FONTE_TAMANHOS[1]).size("Pontos 300")
+    assert f.media.size("Pontos 300") == esperado

@@ -375,3 +375,16 @@ def test_inicio_passa_contagem(telas_abertas):
     jogo = TelaInicio(Config.single_player()).evento(tecla(pygame.K_RETURN))
     telas_abertas.append(jogo)
     assert jogo.contagem > 0
+
+
+def test_foco_perdido_congela_contagem(telas_abertas):
+    t = TelaJogo(config_rapida(duracao_partida=30), contagem=0.3)
+    telas_abertas.append(t)
+    t.evento(pygame.event.Event(pygame.WINDOWFOCUSLOST))
+    for _ in range(60):                      # 1 s longe da janela
+        t.atualizar(1 / 60)
+    assert t.jogo.retrato().estado is EstadoPartida.PRONTA
+    t.evento(pygame.event.Event(pygame.WINDOWFOCUSGAINED))
+    for _ in range(30):
+        t.atualizar(1 / 60)
+    assert t.jogo.retrato().estado is EstadoPartida.RODANDO
