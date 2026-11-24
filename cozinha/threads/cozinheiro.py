@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from threading import Event
 
 from cozinha.config import Config
@@ -84,17 +85,19 @@ class Cozinheiro(threading.Thread):
     def _expirou(self, pedido: Pedido) -> bool:
         return self._config.expiracao and pedido.expirou(self._relogio.agora())
 
-    def _fazer_etapa(self, pedido: Pedido, etapa: Etapa) -> bool:
-        """Faz uma etapa. False se o pedido acabou (expirou ou parar)."""
+    def _fazer_etapa(self, pedido: Pedido, etapa: Etapa,
+                     desistir: Callable[[], bool] = lambda: False) -> bool:
+        """Faz uma etapa. False se o pedido acabou (expirou ou parar) ou se `desistir()`
+        tirou o cozinheiro da fila de uma estação (aí o pedido continua com ele)."""
         if self._expirou(pedido):
             self._pontuacao.registrar_perda(pedido)
             return False
         reservas = self._cozinha.ocupar_todas(
             self.id, etapa.estacoes,
-            cancelar=lambda: self._parar.is_set() or self._expirou(pedido),
+            cancelar=lambda: self._parar.is_set() or self._expirou(pedido) or desistir(),
             ao_mudar=self._ao_mudar)
         if reservas is None:
-            if not self._parar.is_set():
+            if not self._parar.is_set() and not desistir():
                 self._pontuacao.registrar_perda(pedido)      # desistiu porque expirou
             return False
         expirou = False
